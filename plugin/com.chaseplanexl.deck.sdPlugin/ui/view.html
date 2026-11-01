@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChasePlane view slot</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; font-size: 13px; color: #ddd; background: #2d2d2d; margin: 10px; }
+    label { display: block; margin: 8px 0 3px; color: #9c9c9c; }
+    select, input { width: 100%; box-sizing: border-box; padding: 5px; background: #3d3d3d; color: #eee; border: 1px solid #555; border-radius: 4px; }
+    .now { margin-top: 12px; padding: 8px; background: #383838; border-radius: 4px; min-height: 18px; }
+    .hint { color: #888; font-size: 11px; margin-top: 8px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <label for="mode">Camera mode</label>
+  <select id="mode">
+    <option value="auto">Follow current ChasePlane mode</option>
+    <option value="0">Cockpit (internal) views only</option>
+    <option value="1">External views only</option>
+    <option value="2">World views only</option>
+  </select>
+
+  <label for="slot">Slot (position in the view list)</label>
+  <input id="slot" type="number" min="1" max="99" value="1">
+
+  <div class="now" id="now">...</div>
+  <div class="hint">The key shows the view that sits at this position in ChasePlane's view list for the loaded aircraft, lights up while it is active, and switches to it when pressed.</div>
+
+<script>
+  let ws = null, uuid = null, action = null, settings = {};
+  const modeEl = document.getElementById('mode'), slotEl = document.getElementById('slot'), nowEl = document.getElementById('now');
+
+  function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+    uuid = inUUID;
+    try { const ai = JSON.parse(inActionInfo); action = ai.action; settings = (ai.payload && ai.payload.settings) || {}; } catch (e) { settings = {}; }
+    modeEl.value = settings.mode === undefined ? 'auto' : String(settings.mode);
+    slotEl.value = settings.slot || 1;
+    ws = new WebSocket('ws://127.0.0.1:' + inPort);
+    ws.onopen = function () { ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID })); ask(); };
+    ws.onmessage = function (e) {
+      let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (m.event === 'sendToPropertyInspector') show(m.payload);
+    };
+  }
+  function ask() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'sendToPlugin', action: action, context: uuid, payload: { request: 'views', mode: modeEl.value } }));
+  }
+  function show(p) {
+    if (!p || !p.online) { nowEl.textContent = 'ChasePlane Bridge is offline (start MSFS + ChasePlane).'; return; }
+    const i = (parseInt(slotEl.value, 10) || 1) - 1;
+    const name = p.names && p.names[i];
+    nowEl.textContent = name ? 'Slot ' + (i + 1) + ': ' + name + (p.aircraft ? '  (' + p.aircraft + ')' : '') : 'Slot ' + (i + 1) + ' is empty for this mode (' + (p.names ? p.names.length : 0) + ' views).';
+  }
+  function save() {
+    settings.mode = modeEl.value;
+    settings.slot = Math.max(1, Math.min(99, parseInt(slotEl.value, 10) || 1));
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
+    ask();
+  }
+  modeEl.addEventListener('change', save);
+  slotEl.addEventListener('input', save);
+</script>
+</body>
+</html>

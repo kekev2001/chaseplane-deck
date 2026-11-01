@@ -1,0 +1,415 @@
+{
+  "SDKVersion": 2,
+  "Name": "ChasePlane Deck",
+  "Author": "Independent",
+  "Description": "Control ChasePlane (Parallel 42) from a Stream Deck (Mini, 15-key, Neo, +, XL, + XL, Studio; a ready-made profile for each) through ChasePlane's local Bridge: cockpit, external and world cameras, the views of the loaded aircraft with live highlighting, cinematic and flashlight. Not affiliated with Parallel 42, Elgato or Microsoft.",
+  "Category": "ChasePlane",
+  "CategoryIcon": "imgs/plugin/category",
+  "Icon": "imgs/plugin/icon",
+  "Version": "1.0.0.0",
+  "CodePath": "bin/plugin.js",
+  "Nodejs": {
+    "Version": "20"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.4"
+  },
+  "Profiles": [
+    {
+      "Name": "Profiles/ChasePlane.Standard",
+      "DeviceType": 0,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.Mini",
+      "DeviceType": 1,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.XL",
+      "DeviceType": 2,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.Plus",
+      "DeviceType": 7,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.Neo",
+      "DeviceType": 9,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.Studio",
+      "DeviceType": 10,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    },
+    {
+      "Name": "Profiles/ChasePlane.PlusXL",
+      "DeviceType": 13,
+      "Readonly": false,
+      "DontAutoSwitchWhenInstalled": true,
+      "AutoInstall": true
+    }
+  ],
+  "Actions": [
+    {
+      "UUID": "com.chaseplanexl.deck.mode.cockpit",
+      "Name": "Cockpit view",
+      "Icon": "imgs/actions/mode.cockpit",
+      "Tooltip": "Switch ChasePlane to the cockpit (internal) camera. Lights up while active.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/mode.cockpit",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/mode.cockpit_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.mode.external",
+      "Name": "External view",
+      "Icon": "imgs/actions/mode.external",
+      "Tooltip": "Switch ChasePlane to the external camera. Lights up while active.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/mode.external",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/mode.external_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.mode.world",
+      "Name": "World view",
+      "Icon": "imgs/actions/mode.world",
+      "Tooltip": "Switch ChasePlane to the world camera. Lights up while active.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/mode.world",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/mode.world_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.mode.toggle",
+      "Name": "Inside / outside",
+      "Icon": "imgs/actions/mode.toggle",
+      "Tooltip": "Toggle between the cockpit and the external camera.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/mode.toggle",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/mode.toggle_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.cinematic.toggle",
+      "Name": "Cinematic",
+      "Icon": "imgs/actions/cinematic.toggle",
+      "Tooltip": "Start or stop ChasePlane cinematics.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/cinematic.toggle",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/cinematic.toggle_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.cinematic.next",
+      "Name": "Next cinematic shot",
+      "Icon": "imgs/actions/cinematic.next",
+      "Tooltip": "Jump to the next cinematic shot.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/cinematic.next",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/cinematic.next_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.flashlight.toggle",
+      "Name": "Flashlight",
+      "Icon": "imgs/actions/flashlight.toggle",
+      "Tooltip": "Toggle the cockpit flashlight.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/flashlight.toggle",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/flashlight.toggle_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.near.tower",
+      "Name": "Nearest tower",
+      "Icon": "imgs/actions/near.tower",
+      "Tooltip": "World camera at the nearest control tower.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/near.tower",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/near.tower_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.near.runway",
+      "Name": "Nearest runway",
+      "Icon": "imgs/actions/near.runway",
+      "Tooltip": "World camera at the nearest runway.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/near.runway",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/near.runway_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.near.parking",
+      "Name": "Nearest parking",
+      "Icon": "imgs/actions/near.parking",
+      "Tooltip": "World camera at the nearest parking spot.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/near.parking",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/near.parking_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.near.spotting",
+      "Name": "Nearest spotting",
+      "Icon": "imgs/actions/near.spotting",
+      "Tooltip": "World camera at the nearest spotting position.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/near.spotting",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/near.spotting_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.world.drone",
+      "Name": "Drone camera",
+      "Icon": "imgs/actions/world.drone",
+      "Tooltip": "Switch to the drone world camera.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/world.drone",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/world.drone_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.world.flyby",
+      "Name": "Flyby camera",
+      "Icon": "imgs/actions/world.flyby",
+      "Tooltip": "Switch to the flyby world camera.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/world.flyby",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/world.flyby_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.world.traffic",
+      "Name": "Traffic camera",
+      "Icon": "imgs/actions/world.traffic",
+      "Tooltip": "Switch to the traffic world camera.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/actions/world.traffic",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/world.traffic_lit",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.view",
+      "Name": "View slot",
+      "Icon": "imgs/actions/view",
+      "Tooltip": "Shows and selects a view of the loaded aircraft (cockpit, external or world). Choose the slot in the settings below.",
+      "PropertyInspectorPath": "ui/view.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/actions/view",
+          "TitleAlignment": "bottom",
+          "FontSize": "11",
+          "TitleColor": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.status",
+      "Name": "ChasePlane status",
+      "Icon": "imgs/actions/status",
+      "Tooltip": "Shows whether the ChasePlane Bridge is reachable, the current camera mode and the loaded aircraft.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/actions/status",
+          "TitleAlignment": "bottom",
+          "FontSize": "11",
+          "TitleColor": "#FFFFFF"
+        },
+        {
+          "Image": "imgs/actions/status_lit",
+          "TitleAlignment": "bottom",
+          "FontSize": "11",
+          "TitleColor": "#FFFFFF"
+        }
+      ]
+    }
+  ]
+}

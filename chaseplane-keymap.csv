@@ -1,0 +1,61 @@
+Command,Keys,Status,Page,Button,InHybrid,HybridPage
+CAM_SET_ONBOARD,Ctrl+Alt+F2,new,1,"COCKPIT",no,
+CAM_PREV_GROUP,Ctrl+Alt+F5,new,1,"PREV GROUP",no,
+CAM_QUICK_VIEW_LEFT,Shift+H,existing,1,"PEEK LEFT",yes,2
+CAM_SET_OUTSIDE,Ctrl+Alt+F4,new,1,"EXTERNAL",no,
+CAM_NEXT_GROUP,Ctrl+Alt+F9,new,1,"NEXT GROUP",no,
+CAM_QUICK_VIEW_RIGHT,Shift+F,existing,1,"PEEK RIGHT",yes,2
+CAM_SET_WORLD,Ctrl+Alt+F8,new,1,"WORLD",no,
+CAM_NEXT_CINEMATIC,Ctrl+Alt+F21,new,1,"NEXT CINEMA",no,
+CAM_QUICK_VIEW_UP,Ctrl+Alt+F7,new,1,"PEEK UP",yes,2
+CAM_SET_CINEMATIC,Ctrl+Alt+F13,new,1,"CINEMATIC",no,
+CAM_SMART_VIEW_HOLD,Ctrl+Alt+F18,new,1,"SMART HOLD",no,
+CAM_QUICK_VIEW_DOWN,Ctrl+Alt+F11,new,1,"PEEK DOWN",yes,2
+CAM_PREV_VIEW,Shift+G,existing,1,"PREV VIEW",yes,1
+CAM_SET_DRONE,Ctrl+Alt+F17,new,1,"DRONE",no,
+CAM_FLASHLIGHT_TOGGLE,Alt+F,existing,1,"FLASHLIGHT",no,
+CAM_QUICK_VIEW_BEHIND,Ctrl+Alt+F16,new,1,"PEEK BACK",yes,2
+CAM_NEXT_VIEW,Shift+T,existing,1,"NEXT VIEW",yes,1
+CAM_SET_FLYBY,Ctrl+Alt+F20,new,1,"FLYBY",no,
+CAM_BINOCULARS,Ctrl+Alt+F24,new,1,"BINOCULARS",yes,4
+CAM_TOGGLE_IN_OUT,End,existing,1,"IN / OUT",no,
+CAM_SET_OVERVIEW,Ctrl+Alt+F23,new,1,"OVERVIEW",no,
+CAM_RESET,Shift+Space,existing,1,"RESET CAMERA",yes,1
+CAM_SMART_VIEW,Ctrl+Alt+F14,new,1,"SMART VIEW",no,
+CAM_NEAR_TOWER,Ctrl+Alt+F1,new,2,"TOWER",no,
+CAM_ZOOM_IN,Shift+O,existing,2,"ZOOM IN",yes,2
+CAM_NEAR_RUNWAY,Ctrl+Alt+F3,new,2,"RUNWAY",no,
+CAM_ZOOM_OUT,Shift+U,existing,2,"ZOOM OUT",yes,2
+CAM_NEAR_PARKING,Ctrl+Alt+F6,new,2,"PARKING",no,
+CAM_RESET_ZOOM,Ctrl+Alt+7,new,2,"RESET ZOOM",yes,2
+CAM_NEAR_SPOTTING,Ctrl+Alt+F10,new,2,"SPOTTING",no,
+CAM_NEAR_TRAFFIC,Ctrl+Alt+F15,new,2,"TRAFFIC",no,
+CAM_CENTER_TRAFFIC_VIEW,Ctrl+Alt+F19,new,2,"TRAFFIC VIEW",no,
+CAM_CENTER_TRAFFIC_TRACK,Ctrl+Alt+F22,new,2,"TRAFFIC TRACK",no,
+CAM_MOVE_D,Shift+Q,existing,3,"DOWN",yes,3
+CAM_MOVE_L,Shift+A,existing,3,"LEFT",yes,3
+CAM_CONTROL_PROFILE_SLOW,Ctrl+Alt+1,new,3,"SPEED SLOW",yes,3
+CAM_MOVE_F,Shift+W,existing,3,"FORWARD",yes,3
+CAM_MOVE_B,Shift+S,existing,3,"BACK",yes,3
+CAM_CONTROL_PROFILE_NORMAL,Ctrl+Alt+2,new,3,"SPEED NORMAL",yes,3
+CAM_MOVE_U,Shift+E,existing,3,"UP",yes,3
+CAM_MOVE_R,Shift+D,existing,3,"RIGHT",yes,3
+CAM_CONTROL_PROFILE_FAST,Ctrl+Alt+3,new,3,"SPEED FAST",yes,3
+CAM_ROLL_L,Ctrl+Alt+4,new,3,"ROLL LEFT",yes,3
+CAM_ROT_L,Shift+J,existing,3,"LOOK LEFT",yes,3
+CAM_BOOST_SET,PageUp,existing,3,"BOOST (HOLD)",yes,3
+CAM_ROT_U,Shift+I,existing,3,"LOOK UP",yes,3
+CAM_ROT_D,Shift+K,existing,3,"LOOK DOWN",yes,3
+CAM_DRAG_TOGGLE,Ctrl+Alt+5,new,3,"DRAG MODE",yes,3
+CAM_ROLL_R,Ctrl+Alt+6,new,3,"ROLL RIGHT",yes,3
+CAM_ROT_R,Shift+L,existing,3,"LOOK RIGHT",yes,3
+CAM_RESET_ORIENT,Ctrl+Alt+8,new,3,"RESET HORIZON",yes,3
+CAM_TOGGLE_DOF,Ctrl+Alt+9,new,4,"DEPTH OF FIELD",yes,4
+CAM_BINOCULARS_HOLD,Ctrl+Alt+Z,new,4,"BINO (HOLD)",yes,4
+CAM_TOGGLE_DOF_AUTOFOCUS,Ctrl+Alt+X,new,4,"AUTO FOCUS",yes,4
+CAM_EXPOSURE_LESS,Ctrl+Alt+V,new,4,"EXPOSURE LESS",yes,4
+CAM_TOGGLE_NVG,Ctrl+Alt+C,new,4,"NIGHT VISION",yes,4
+CAM_EXPOSURE_MORE,Ctrl+Alt+N,new,4,"EXPOSURE MORE",yes,4
+CAM_NVG_INTENSITY_LESS,Ctrl+Alt+B,new,4,"NVG LESS",yes,4
+CAM_HEAD_TRACKING_TOGGLE,Ctrl+Alt+0,new,4,"HEAD TRACKING",yes,4
+CAM_NVG_INTENSITY_MORE,Ctrl+Alt+M,new,4,"NVG MORE",yes,4

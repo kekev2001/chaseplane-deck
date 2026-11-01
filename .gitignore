@@ -1,0 +1,12 @@
+# build output: rebuild with build\Build-ChasePlaneXL.ps1 and build\Build-Installer.ps1
+/ChasePlane XL.streamDeckPlugin
+/hotkeys-only/
+/release/
+/installer/obj/
+/plugin/*/imgs/
+/plugin/*/Profiles/
+/plugin/*/logs/
+/preview/*_hotkeys.png
+node_modules/
+*.bak-*
+Thumbs.db
