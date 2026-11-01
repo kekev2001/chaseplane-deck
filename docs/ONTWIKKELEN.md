@@ -39,7 +39,7 @@ De draaiknoppen en het touch-scherm van de +, + XL, Studio en Neo gebruik ik nie
 ## Een update uitbrengen
 
 1. Zet een hoger versienummer in het bestand `VERSION` (bijvoorbeeld `1.1.0.0`). Plugin, profielen en installer nemen dat over.
-2. Draai `build\Build-ChasePlaneXL.ps1` en daarna `build\Build-Installer.ps1 -UpdateUrl https://raw.githubusercontent.com/kekev2001/chaseplane-deck/main/latest.json -DownloadUrl https://github.com/kekev2001/chaseplane-deck#download -Notes "wat er nieuw is" -Publish` (kopieert de exe naar `download\` en schrijft `latest.json`; commit en push beide).
+2. Draai `build\Build-ChasePlaneXL.ps1` en daarna `build\Build-Installer.ps1 -UpdateUrl https://raw.githubusercontent.com/kekev2001/chaseplane-deck/main/latest.json -DownloadUrl https://github.com/kekev2001/chaseplane-deck/releases/latest -Notes "wat er nieuw is" -Publish` (kopieert de exe naar `download\` en schrijft `latest.json`; commit en push beide).
 3. Zet `release\ChasePlane-Deck-Setup.exe` op de downloadplek en `latest.json` (projectroot) op het `-UpdateUrl`-adres.
 4. Wie Setup opent, ziet een link "Update beschikbaar". Er wordt niets automatisch gedownload of uitgevoerd; de gebruiker haalt de nieuwe exe op en klikt op *Installeren / bijwerken* (Stream Deck vervangt de plugin; reeds gezette toetsen blijven staan).
 

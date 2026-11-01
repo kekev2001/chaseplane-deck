@@ -9,7 +9,7 @@ A free, unofficial Stream Deck plugin with a ready-made profile for **every Stre
 
 ## Download
 
-**[ChasePlane-Deck-Setup.exe](https://github.com/kekev2001/chaseplane-deck/raw/main/download/ChasePlane-Deck-Setup.exe)** (about 13 MB, Windows 10/11). Everything is inside this one file: the plugin, a profile for every Stream Deck model, the hotkeys-only fallback profiles, the key list and a help window in English and Dutch. SHA-256: see [download/SHA256.txt](download/SHA256.txt). Dutch readme: [README-NL.md](README-NL.md).
+**[ChasePlane-Deck-Setup.exe](https://github.com/kekev2001/chaseplane-deck/releases/latest/download/ChasePlane-Deck-Setup.exe)** (about 13 MB, Windows 10/11; current version: [latest release](https://github.com/kekev2001/chaseplane-deck/releases/latest), older versions are on the [Releases page](https://github.com/kekev2001/chaseplane-deck/releases)). Everything is inside this one file: the plugin, a profile for every Stream Deck model, the hotkeys-only fallback profiles, the key list and a help window in English and Dutch. SHA-256: see [download/SHA256.txt](download/SHA256.txt). Dutch readme: [README-NL.md](README-NL.md).
 
 ![Setup window](preview/installer.png)
 
@@ -80,7 +80,7 @@ powershell -ExecutionPolicy Bypass -File build\Build-Installer.ps1         # rel
 
 Tests: `test\Validate-Profiles.ps1` (structure of all profiles), `test\Test-Installer.ps1` (the installer, on scratch copies only) and `test\plugin-test.js` (the plugin against a fake Bridge; needs `npm install ws` in `test`).
 
-**Releasing an update:** raise the number in `VERSION`, run both build scripts, then `build\Build-Installer.ps1 -UpdateUrl https://raw.githubusercontent.com/kekev2001/chaseplane-deck/main/latest.json -DownloadUrl https://github.com/kekev2001/chaseplane-deck#download -Notes "what is new" -Publish`, and commit `download\` and `latest.json`. Copies of Setup that were built with that address then show an "Update available" link. Developer notes in Dutch: [docs/ONTWIKKELEN.md](docs/ONTWIKKELEN.md).
+**Releasing an update:** raise the number in `VERSION`, run both build scripts, then `build\Build-Installer.ps1 -UpdateUrl https://raw.githubusercontent.com/kekev2001/chaseplane-deck/main/latest.json -DownloadUrl https://github.com/kekev2001/chaseplane-deck/releases/latest -Notes "what is new" -Publish`, commit `download\` and `latest.json`, push, and create a GitHub release (tag `vX.Y.Z`, attach `release\ChasePlane-Deck-Setup.exe`). Copies of Setup that were built with that address then show an "Update available" link. Developer notes in Dutch: [docs/ONTWIKKELEN.md](docs/ONTWIKKELEN.md).
 
 ## License
 

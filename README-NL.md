@@ -9,7 +9,7 @@ Een gratis, onofficiële Stream Deck-plugin met een kant-en-klaar profiel voor *
 
 ## Downloaden
 
-**[ChasePlane-Deck-Setup.exe](https://github.com/kekev2001/chaseplane-deck/raw/main/download/ChasePlane-Deck-Setup.exe)** (ongeveer 13 MB, Windows 10/11). Alles zit in dit ene bestand. SHA-256: zie [download/SHA256.txt](download/SHA256.txt). Engelse uitleg: [README.md](README.md). Ontwikkelaarsnotities: [docs/ONTWIKKELEN.md](docs/ONTWIKKELEN.md).
+**[ChasePlane-Deck-Setup.exe](https://github.com/kekev2001/chaseplane-deck/releases/latest/download/ChasePlane-Deck-Setup.exe)** (ongeveer 13 MB, Windows 10/11; nieuwste versie: [laatste release](https://github.com/kekev2001/chaseplane-deck/releases/latest), oudere versies staan op de [Releases-pagina](https://github.com/kekev2001/chaseplane-deck/releases)). Alles zit in dit ene bestand. SHA-256: zie [download/SHA256.txt](download/SHA256.txt). Engelse uitleg: [README.md](README.md). Ontwikkelaarsnotities: [docs/ONTWIKKELEN.md](docs/ONTWIKKELEN.md).
 
 ## Installeren (2 minuten)
 
