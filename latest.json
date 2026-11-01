@@ -1,5 +1,5 @@
 {
-    "version":  "1.0.1.0",
+    "version":  "1.1.0.0",
     "url":  "https://github.com/kekev2001/chaseplane-deck/releases/latest",
-    "notes":  "Safer ChasePlane shortcuts: Setup now asks before it changes anything, keeps an extra backup, can restore your own shortcuts and never writes to a settings file ChasePlane has not filled yet."
+    "notes":  "The deck now presses the shortcuts you set in ChasePlane (the speed keys use the Bridge). Setup asks before it changes anything, keeps extra backups and can restore your own shortcuts."
 }

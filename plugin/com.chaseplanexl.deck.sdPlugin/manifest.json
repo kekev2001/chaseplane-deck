@@ -2,11 +2,11 @@
   "SDKVersion": 2,
   "Name": "ChasePlane Deck",
   "Author": "Independent",
-  "Description": "Control ChasePlane (Parallel 42) from a Stream Deck (Mini, 15-key, Neo, +, XL, + XL, Studio; a ready-made profile for each) through ChasePlane's local Bridge: cockpit, external and world cameras, the views of the loaded aircraft with live highlighting, cinematic and flashlight. Not affiliated with Parallel 42, Elgato or Microsoft.",
+  "Description": "Control ChasePlane (Parallel 42) from a Stream Deck (Mini, 15-key, Neo, +, XL, + XL, Studio; a ready-made profile for each) through ChasePlane's local Bridge: cockpit, external and world cameras, the views of the loaded aircraft with live highlighting, cinematic, flashlight and speed. The other keys press the keyboard shortcuts you have set in ChasePlane. Not affiliated with Parallel 42, Elgato or Microsoft.",
   "Category": "ChasePlane",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/icon",
-  "Version": "1.0.1.0",
+  "Version": "1.1.0.0",
   "CodePath": "bin/plugin.js",
   "Nodejs": {
     "Version": "20"
@@ -408,6 +408,28 @@
           "TitleAlignment": "bottom",
           "FontSize": "11",
           "TitleColor": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.cmd",
+      "Name": "ChasePlane command",
+      "Icon": "imgs/actions/cmd",
+      "Tooltip": "Runs a ChasePlane command (peek, roll, night vision, ...) with the keyboard shortcut you have set for it in ChasePlane. Used by the ChasePlane profiles.",
+      "VisibleInActionsList": false,
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/actions/cmd",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/actions/cmd_lit",
+          "ShowTitle": false
         }
       ]
     }

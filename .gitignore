@@ -6,6 +6,8 @@
 /plugin/*/imgs/
 /plugin/*/Profiles/
 /plugin/*/logs/
+/plugin/*/bin/keysend.exe
+/test/probe-output/
 /preview/*_hotkeys.png
 node_modules/
 *.bak-*

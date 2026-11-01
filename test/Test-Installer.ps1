@@ -17,9 +17,12 @@ $env:CPDECK_UPDATE_URL = ''
 $env:CPDECK_BACKUP_DIR = Join-Path $Work 'own-backups'
 $pass = 0; $fail = 0
 function Check([bool]$ok, [string]$msg) { if ($ok) { $script:pass++ } else { $script:fail++; Write-Host "FAIL: $msg" -ForegroundColor Red } }
-function Run([string]$exeArgs) {
+# The installer refuses to touch ChasePlane's settings while MSFS / ChasePlane runs. A real simulator open on this PC must not break the tests,
+# so every run ignores running processes, except the ones that test that very refusal (-Strict).
+function Run([string]$exeArgs, [switch]$Strict) {
     $log = Join-Path $Work 'run.log'; if (Test-Path $log) { Remove-Item $log -Force }
-    $p = Start-Process -FilePath $Exe -ArgumentList "$exeArgs /log:`"$log`"" -Wait -PassThru
+    $extra = if ($Strict) { '' } else { ' /ignoreprocesses' }
+    $p = Start-Process -FilePath $Exe -ArgumentList "$exeArgs$extra /log:`"$log`"" -Wait -PassThru
     $text = if (Test-Path $log) { (Get-Content $log -Raw) } else { '' }
     [pscustomobject]@{ Code = $p.ExitCode; Log = $text }
 }
@@ -37,17 +40,17 @@ function Lines([string]$f) { $j = Get-Content $f -Raw | ConvertFrom-Json; @($j.c
 # ---- 1. adding keys
 $s1 = NewSettings 's1'
 $r = Run "/silent /noplugin /dryrun /settings:`"$s1`""
-Check ($r.Code -eq 0 -and $r.Log -match '21 to add') "dry run should report 21 keys: $($r.Log)"
+Check ($r.Code -eq 0 -and $r.Log -match '18 to add') "dry run should report 18 keys (the plugin profiles need 18 ChasePlane keys; the 3 speed keys go through the Bridge): $($r.Log)"
 Check ((Get-Content $s1 -Raw) -ceq $Base) 'dry run changed the file'
 $r = Run "/silent /noplugin /settings:`"$s1`""
-Check ($r.Code -eq 0 -and $r.Log -match '21 to add' -and $r.Log -match 'Backup:') "apply: $($r.Log)"
+Check ($r.Code -eq 0 -and $r.Log -match '18 to add' -and $r.Log -match 'Backup:') "apply: $($r.Log)"
 $n1 = (Lines $s1).Count
 $r = Run "/silent /noplugin /settings:`"$s1`""
-Check ($r.Log -match '0 to add, 21 already there') "second apply should add nothing: $($r.Log)"
+Check ($r.Log -match '0 to add, 18 already there') "second apply should add nothing: $($r.Log)"
 Check ((Lines $s1).Count -eq $n1) 'second apply changed the number of lines'
 $null = (Get-Content $s1 -Raw | ConvertFrom-Json)
 $r = Run "/silent /noplugin /allkeys /settings:`"$s1`""
-Check ($r.Log -match '18 to add' -and $r.Log -match 'skipped CAM_SMART_VIEW') "allkeys: $($r.Log)"
+Check ($r.Log -match '21 to add' -and $r.Log -match 'skipped CAM_SMART_VIEW') "allkeys: $($r.Log)"
 
 # ---- 2. removing exactly what was added gives the original back
 $s2 = NewSettings 's2'
@@ -64,15 +67,20 @@ $own = $Base.Replace('"control_mappings":"', '"control_mappings":"CAM_OTHER_THIN
 $own = $own.Replace('CAM_QUICK_VIEW_LEFT&1|Keyboard|160|2|0;1|Keyboard|72|2|0;', 'CAM_QUICK_VIEW_LEFT&1|Keyboard|160|2|0;1|Keyboard|74|2|0;')
 $s3 = NewSettings 's3' $own
 $r = Run "/silent /noplugin /settings:`"$s3`""
-Check ($r.Log -match 'CAM_QUICK_VIEW_BEHIND: Ctrl\+Alt\+F16 is already used by CAM_OTHER_THING' -and $r.Log -match '20 to add') "conflict: $($r.Log)"
+Check ($r.Log -match 'CAM_QUICK_VIEW_BEHIND: Ctrl\+Alt\+F16 is already used by CAM_OTHER_THING, using Ctrl\+Alt\+Shift\+F16 instead' -and $r.Log -match '18 to add' -and $r.Log -match 'CAM_QUICK_VIEW_BEHIND\s+Ctrl\+Alt\+Shift\+F16') "conflict: a free alternative is used (the plugin reads the key from ChasePlane): $($r.Log)"
+Check ((Lines $s3) -match '^CAM_QUICK_VIEW_BEHIND&' -and (Lines $s3) -match '^CAM_OTHER_THING&') 'conflict: both commands must end up with a key, the user''s own one untouched'
 Check ($r.Log -match 'CAM_QUICK_VIEW_LEFT uses a different key') "changed default not reported: $($r.Log)"
 $r = Run "/silent /undo /settings:`"$s3`""
 Check ((Get-Content $s3 -Raw) -ceq $own) 'undo did not restore the original'
+# the hotkeys-only profiles have fixed keys: with /allkeys a taken combination is skipped, not replaced
+$s3b = NewSettings 's3b' $own
+$r = Run "/silent /noplugin /allkeys /settings:`"$s3b`""
+Check ($r.Log -match 'skipped CAM_QUICK_VIEW_BEHIND: Ctrl\+Alt\+F16 is already used by CAM_OTHER_THING' -and $r.Log -notmatch 'using Ctrl') "conflict with /allkeys must skip, not replace: $($r.Log)"
 
 # ---- 4. check & fix against a scratch plugin folder
 $s4 = NewSettings 's4'
 $r = Run "/silent /repair /dryrun /settings:`"$s4`""
-Check ($r.Code -eq 1 -and $r.Log -match 'The plugin is not installed' -and $r.Log -match '21 keys are missing') "repair, nothing installed: $($r.Log)"
+Check ($r.Code -eq 1 -and $r.Log -match 'The plugin is not installed' -and $r.Log -match '18 keys are missing') "repair, nothing installed: $($r.Log)"
 Check ($r.Log -match 'Bridge') 'bridge line missing'
 [System.IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $Root 'ChasePlane XL.streamDeckPlugin'), $Plugins)
 $null = Run "/silent /noplugin /settings:`"$s4`""
@@ -94,7 +102,7 @@ Check ($r.Log -match 'newer plugin \(2\.0\.0\.0\)') "repair, newer plugin: $($r.
 # ---- 5. fixing missing keys through /repair (plugin step skipped)
 $s5 = NewSettings 's5'
 $r = Run "/silent /repair /noplugin /settings:`"$s5`""
-Check ($r.Code -eq 0 -and (Lines $s5).Count -eq ((Lines (NewSettings 's5b')).Count + 21)) "repair should add 21 keys: $($r.Log)"
+Check ($r.Code -eq 0 -and (Lines $s5).Count -eq ((Lines (NewSettings 's5b')).Count + 18)) "repair should add 18 keys: $($r.Log)"
 
 # ---- 6. removing the plugin and the ChasePlane profiles (profiles are folders in a scratch ProfilesV3 next to the scratch plugins folder)
 $Prof = Join-Path $Work 'ProfilesV3'
@@ -125,17 +133,19 @@ Copy-Item "$env:WINDIR\System32\timeout.exe" (Join-Path $Work 'FlightSimulator20
 $dummy = Start-Process -FilePath (Join-Path $Work 'FlightSimulator2024.exe') -ArgumentList '/t 60 /nobreak' -PassThru -WindowStyle Hidden
 Start-Sleep -Milliseconds 700
 $s7 = NewSettings 's7'
-$r = Run "/silent /noplugin /settings:`"$s7`""
-Check ($r.Code -eq 1 -and $r.Log -match 'Close first: FlightSimulator2024') "running sim: $($r.Log)"
-$r = Run "/silent /remove /yes /noplugin /settings:`"$s7`""
+$r = Run "/silent /noplugin /settings:`"$s7`"" -Strict
+Check ($r.Code -eq 1 -and $r.Log -match 'Close first: .*FlightSimulator2024') "running sim: $($r.Log)"
+$r = Run "/silent /remove /yes /noplugin /settings:`"$s7`"" -Strict
 Check ($r.Code -eq 1 -and $r.Log -match 'Close MSFS') "remove while sim runs: $($r.Log)"
+$r = Run "/silent /restorekeys /settings:`"$s7`"" -Strict
+Check ($r.Code -eq 1 -and $r.Log -match 'Close MSFS') "restore shortcuts while sim runs: $($r.Log)"
 Check ((Get-Content $s7 -Raw) -ceq $Base) 'settings changed while the simulator ran'
 Stop-Process -Id $dummy.Id -Force -ErrorAction SilentlyContinue
 
 # ---- 8. Dutch
 $s8 = NewSettings 's8'
 $r = Run "/silent /noplugin /dryrun /lang:nl /settings:`"$s8`""
-Check ($r.Log -match '21 toe te voegen' -and $r.Log -match 'proefrun') "dutch log: $($r.Log)"
+Check ($r.Log -match '18 toe te voegen' -and $r.Log -match 'proefrun') "dutch log: $($r.Log)"
 $r = Run "/silent /repair /dryrun /lang:nl /settings:`"$s8`""
 Check ($r.Log -match 'De plugin is niet' -and $r.Log -match 'toetsen ontbreken') "dutch repair: $($r.Log)"
 
@@ -169,7 +179,7 @@ Check ($r.Code -eq 1 -and $r.Log -match 'has not saved its shortcut list') "chec
 $custom = $Base.Replace('"control_mappings":"', '"control_mappings":"CAM_OTHER_THING&1|Keyboard|162|2|0;1|Keyboard|49|2|0;\nCAM_MINE_TWO&1|Keyboard|164|2|0;1|Keyboard|50|2|0;\n')
 $s13 = NewSettings 's13' $custom
 $r = Run "/silent /noplugin /settings:`"$s13`""
-Check ($r.Code -eq 0 -and $r.Log -match '21 to add') "install on a list with the user's own shortcuts: $($r.Log)"
+Check ($r.Code -eq 0 -and $r.Log -match '18 to add') "install on a list with the user's own shortcuts: $($r.Log)"
 Check ((Lines $s13) -match '^CAM_OTHER_THING&' -and (Lines $s13) -match '^CAM_MINE_TWO&') 'the user''s own shortcuts must survive the install'
 $reset = $Base.Replace('"ui_compact":false', '"ui_compact":true')                       # what a reset looks like: defaults only, another setting changed
 [System.IO.File]::WriteAllText($s13, $reset, (New-Object System.Text.UTF8Encoding $false))
@@ -204,8 +214,9 @@ function Serve([string]$json) {
     $null = $ps.EndInvoke($h); $ps.Dispose()
     if (Test-Path (Join-Path $Work 'upd.log')) { Get-Content (Join-Path $Work 'upd.log') -Raw } else { '(no log)' }
 }
-$u = Serve '{"version":"1.1.0.0","url":"https://example.com/ChasePlane-Deck-1.1.0.zip","notes":"Fixes peek keys"}'
-Check ($u -match 'update 1\.1\.0\.0 https://example\.com/ChasePlane-Deck-1\.1\.0\.zip \| Fixes peek keys') "newer version: $u"
+$Newer = '{0}.0.0.0' -f ([int]$Ver.Split('.')[0] + 1)          # always newer than the build under test
+$u = Serve ('{"version":"' + $Newer + '","url":"https://example.com/ChasePlane-Deck-' + $Newer + '.zip","notes":"Fixes peek keys"}')
+Check ($u -match ('update ' + [regex]::Escape($Newer) + ' https://example\.com/ChasePlane-Deck-' + [regex]::Escape($Newer) + '\.zip \| Fixes peek keys')) "newer version: $u"
 $u = Serve ('{"version":"' + $Ver + '","url":"https://example.com/x.zip"}')
 Check ($u -match 'no update') "same version: $u"
 $u = Serve '{"version":"9.0.0.0","url":"http://example.com/x.zip"}'

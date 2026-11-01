@@ -30,15 +30,17 @@ Een gratis, onofficiële Stream Deck-plugin met een kant-en-klaar profiel voor *
 
 ## De extra ChasePlane-toetsen
 
-De meeste toetsen praten rechtstreeks met ChasePlane en hebben niets nodig. Een paar (peek omhoog/omlaag/achter, roll, snelheid, binoculars, night vision, exposure, depth of field, head tracking) hebben een sneltoets in ChasePlane nodig. Setup zet ze (`Ctrl+Alt` + een F-toets, cijfer of letter) in ChasePlane's `user_settings.json`:
+Views, camera's, cinematic, zaklamp, dichtstbijzijnde toren / baan / parkeerplek / spotting, drone, flyby, verkeer en de drie snelheden praten rechtstreeks met ChasePlane via de Bridge en hebben niets nodig. De andere toetsen (bewegen, kijken, zoomen, peek, roll, binoculars, night vision, exposure, depth of field, head tracking, ...) drukken **de sneltoets die jij in ChasePlane voor dat commando hebt ingesteld**. De plugin leest jouw sneltoetsen uit ChasePlane terwijl hij draait. Heb je ze veranderd, of hebben anderen andere, dan volgt de deck dat. Alleen een commando zonder sneltoets heeft er nog een nodig. Setup kan die toevoegen (een `Ctrl+Alt`-combinatie) in ChasePlane's `user_settings.json`:
 
 - *Installeren / bijwerken* vraagt eerst en zegt hoeveel er bij komen; antwoord **Nee** (of gebruik *Alleen plugin*) en de instellingen van ChasePlane blijven helemaal ongemoeid;
 - eerst wordt een back-up naast het bestand gezet, plus een tweede kopie in `%APPDATA%\ChasePlane Deck\Backups` (buiten de ChasePlane-map); na het schrijven leest Setup het bestand terug en zet het origineel terug als het niet precies is zoals bedoeld;
-- een commando dat al een toets heeft blijft ongemoeid, en een sneltoets die een ander commando al gebruikt wordt overgeslagen;
-- *Toetsenlijst...* toont alle sneltoetsen, zodat je ze liever zelf kunt toewijzen via ChasePlane > Preferences > Control Assignments;
+- een commando dat al een toets heeft blijft ongemoeid; gebruikt een ander commando de combinatie die Setup wil, dan kiest Setup een vrije (`Ctrl+Alt+Shift+...`), want de deck leest welke toets het is;
+- *Toetsenlijst...* toont alle commando's, zodat je ze liever zelf kunt toewijzen via ChasePlane > Preferences > Control Assignments;
 - met ChasePlane cloud sync aan kan ChasePlane zijn cloudkopie van de instellingen terugzetten; wijs de toetsen dan met de hand toe.
 
-Sommige toetsen (bewegen, kijken, zoomen, peek links/rechts, boost) gebruiken ChasePlane's **standaard**sneltoetsen. Heb je die in ChasePlane veranderd, dan meldt Setup welke afwijken.
+Een deck-toets waarvan het commando geen sneltoets heeft (of een muisknop), knippert als je erop drukt, en het pluginlogboek zegt om welk commando het ging. De plugin drukt alleen toetsen als het venster van de flight simulator vooraan staat, nooit in een ander venster. Dat doet hij met een klein hulpprogramma, `keysend.exe`, in de pluginmap.
+
+De *Hotkeys-only*-profielen werken anders: hun toetsen sturen vaste sneltoetsen (de `Ctrl+Alt`-toetsen hierboven en de standaardtoetsen van ChasePlane), dus die hebben de exacte sneltoetsen van de toetsenlijst nodig.
 
 ## Welk profiel krijg ik
 
@@ -56,13 +58,14 @@ Draaiknoppen en touch-strips worden niet gebruikt. De knop *Hotkeys-only profiel
 ## Problemen
 
 - **Status-toets blijft rood / "BRIDGE OFFLINE":** start MSFS en ChasePlane; de plugin verbindt binnen enkele seconden zelf opnieuw.
-- **Toetsen doen niets:** gebruik *Check & herstel*, en controleer in ChasePlane (Control Assignments) of het commando de juiste toets heeft. Draait MSFS/ChasePlane als administrator, start dan ook de Stream Deck-app als administrator.
+- **Een toets knippert en doet niets:** het commando heeft geen sneltoets in ChasePlane (wijs er een toe in Control Assignments of laat Setup hem toevoegen), of het venster van de flight simulator staat niet vooraan.
+- **Toetsen doen niets:** gebruik *Check & herstel*. Draait MSFS/ChasePlane als administrator, start dan ook de Stream Deck-app als administrator.
 - **Pluginlogboek:** `%APPDATA%\Elgato\StreamDeck\Plugins\com.chaseplanexl.deck.sdPlugin\logs\plugin.log`
 - **Een tab opent de verkeerde pagina:** meld het graag, met je deckmodel.
 
 ## Let op
 
-- Dit is een eerste versie. De plugin is getest tegen een nagemaakte ChasePlane Bridge en een nagemaakte Stream Deck, en de profielbestanden zijn structureel gecontroleerd. Meldingen van echte decks (vooral Mini, Neo, +, + XL en Studio) zijn zeer welkom.
+- De plugin is getest tegen een nagemaakte ChasePlane Bridge en een nagemaakte Stream Deck, en de profielbestanden zijn structureel gecontroleerd. Het uitlezen van de toetsenlijst, de snelheidstoetsen en het drukken van een toets (de in/uit-camerawissel, met de eigen sneltoets van de gebruiker) zijn daarnaast gecontroleerd tegen een draaiende ChasePlane. Meldingen van echte decks (vooral Mini, Neo, +, + XL en Studio) zijn zeer welkom.
 - De plugin gebruikt ChasePlane's lokale Bridge (`ws://127.0.0.1:8652`). Die interface is niet officieel gedocumenteerd, dus een ChasePlane-update kan hem veranderen. De `hotkeys-only`-profielen zijn de terugvaloptie.
 - Onafhankelijk project. Niet verbonden aan, goedgekeurd door of ondersteund door Parallel 42, Elgato of Microsoft. ChasePlane, Stream Deck en Microsoft Flight Simulator zijn merken van hun eigenaren.
-- Setup installeert niets buiten de Stream Deck-pluginmap (via de Stream Deck-app), een tijdelijk bestand in `%TEMP%\ChasePlaneDeckSetup`, kopieën van ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, en de back-up en wijziging van ChasePlane's `user_settings.json` die je goedkeurt door op Installeren te klikken. Zonder ingebouwd updateadres gebruikt Setup het netwerk niet.
+- Setup installeert niets buiten de Stream Deck-pluginmap (via de Stream Deck-app; in die map staat ook het kleine toetsenprogramma `keysend.exe`), een tijdelijk bestand in `%TEMP%\ChasePlaneDeckSetup`, kopieën van ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, en de back-up en wijziging van ChasePlane's `user_settings.json` die je goedkeurt door op Installeren te klikken. Zonder ingebouwd updateadres gebruikt Setup het netwerk niet.

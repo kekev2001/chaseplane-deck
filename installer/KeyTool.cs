@@ -132,6 +132,15 @@ namespace ChasePlaneDeckSetup
             return sb.ToString();
         }
 
+        // a free combination next to the wanted one (Shift added); null when that is taken too
+        static string FreeAlternative(string combo, Dictionary<string, string> byCanon)
+        {
+            string[] parts = combo.Split('+');
+            if (Array.IndexOf(parts, "Shift") >= 0) return null;
+            string alt = string.Join("+", parts, 0, parts.Length - 1) + "+Shift+" + parts[parts.Length - 1];
+            return byCanon.ContainsKey(Canon(EntryFor(alt))) ? null : alt;
+        }
+
         // order-independent signature of a binding, used to find two commands on the same keys
         static string Canon(string entries)
         {
@@ -316,18 +325,26 @@ namespace ChasePlaneDeckSetup
                         }
                         continue;
                     }
-                    string owner;
+                    string owner, shown = k.Keys;
                     if (byCanon.TryGetValue(canon, out owner))
                     {
-                        log.Line(Loc.T("  skipped {0}: {1} is already used by {2}.", "  overgeslagen {0}: {1} wordt al gebruikt door {2}.", k.Command, k.Keys, owner));
-                        res.Skipped++;
-                        continue;
+                        // the plugin profiles read the key from ChasePlane, so another free combination works as well; the hotkeys-only profiles
+                        // (/allkeys) have fixed keys, so for those the combination must stay as it is
+                        string alt = allKeys ? null : FreeAlternative(k.Keys, byCanon);
+                        if (alt == null)
+                        {
+                            log.Line(Loc.T("  skipped {0}: {1} is already used by {2}.", "  overgeslagen {0}: {1} wordt al gebruikt door {2}.", k.Command, k.Keys, owner));
+                            res.Skipped++;
+                            continue;
+                        }
+                        if (!quiet) log.Line(Loc.T("  {0}: {1} is already used by {2}, using {3} instead (the deck reads the key from ChasePlane).", "  {0}: {1} wordt al gebruikt door {2}, daarom {3} (de deck leest de toets uit ChasePlane).", k.Command, k.Keys, owner, alt));
+                        shown = alt; expected = EntryFor(alt); canon = Canon(expected);
                     }
                     add.Append(k.Command).Append(mp.Sep).Append(expected).Append("\\n");
                     byCanon[canon] = k.Command;
                     byCmd[k.Command] = new List<string> { expected };
                     res.Added++;
-                    if (!quiet) log.Line("  + " + k.Command.PadRight(28) + k.Keys + "   (" + OneLine(k.Label) + ")");
+                    if (!quiet) log.Line("  + " + k.Command.PadRight(28) + shown + "   (" + OneLine(k.Label) + ")");
                 }
 
                 log.Line(Loc.T("  {0} to add, {1} already there, {2} skipped, {3} notes.", "  {0} toe te voegen, {1} stonden er al, {2} overgeslagen, {3} opmerkingen.", res.Added, res.Present, res.Skipped, res.Notes));

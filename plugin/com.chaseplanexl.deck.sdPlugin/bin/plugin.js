@@ -7,9 +7,21 @@ const net = require('net');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 
 const BRIDGE_URL = process.env.CHASEPLANE_BRIDGE_URL || 'ws://127.0.0.1:8652';
+// keysend.exe presses keys for the "command" keys (the Bridge has no command for peek up, roll, night vision ...); see plugin/keysend/KeySend.cs
+const KEYSEND = process.env.CPDECK_KEYSEND || path.join(__dirname, 'keysend.exe');
+// these three the Bridge can do itself (set_control_profile): no key needed
+const SPEED = { CAM_CONTROL_PROFILE_SLOW: 0, CAM_CONTROL_PROFILE_NORMAL: 1, CAM_CONTROL_PROFILE_FAST: 2 };
+// "command" keys that light up (their profile entry has a second, lit image); the Bridge reports control_profile and head_tracking_enabled in cam_mode_set
+const CMD_LIT = {
+  CAM_CONTROL_PROFILE_SLOW: () => cam().control_profile === 0,
+  CAM_CONTROL_PROFILE_NORMAL: () => cam().control_profile === 1,
+  CAM_CONTROL_PROFILE_FAST: () => cam().control_profile === 2,
+  CAM_HEAD_TRACKING_TOGGLE: () => cam().head_tracking_enabled === true,
+};
 const CLIENT_NAME = 'ChasePlane Deck';
 const PREFIX = 'com.chaseplanexl.deck.';
 const KEY_IMG_DIR = process.env.CHASEPLANE_KEY_IMG_DIR || path.join(__dirname, '..', 'imgs', 'keys');
@@ -131,12 +143,12 @@ class WS extends EventEmitter {
 
 // ------------------------------------------------------------------ Bridge connection and state
 const bridge = { ws: null, ready: false, pending: new Map(), seq: 0, readyTimer: null, version: null };
-const model = { camera: null, runtime: null, views: [], aircraft: '' };
+const model = { camera: null, runtime: null, sim: null, views: [], aircraft: '' };
 let viewsTimer = null;
 
 function cam() { return model.camera || { mode: null }; }
 function flag(names) {
-  for (const src of [model.camera, model.runtime]) {
+  for (const src of [model.camera, model.runtime, model.sim]) {
     if (!src) continue;
     for (const n of names) if (typeof src[n] === 'boolean') return src[n];
   }
@@ -198,6 +210,7 @@ function onBridgeReady() {
   bridge.ready = true; bridge.logErr = null;
   log('bridge ready');
   refreshViews(0);
+  refreshBindings(true);
   renderAll();
 }
 function onBridgeMessage(text) {
@@ -215,6 +228,7 @@ function onBridgeMessage(text) {
       break;
     }
     case 'camera_runtime_state': model.runtime = m.payload && typeof m.payload === 'object' ? m.payload : null; renderAll(); break;
+    case 'sim_state': model.sim = m.payload && typeof m.payload === 'object' ? m.payload : null; renderAll(); break;      // has flashlight_enabled
     case 'view_created': case 'view_modified': case 'view_deleted': refreshViews(); break;
     case 'api_reply': {
       const p = bridge.pending.get(m.request_id);
@@ -260,6 +274,189 @@ function viewByType(type, label) {
   const v = viewOfType(type);
   if (!v) return Promise.reject(new Error('No ' + label + ' view for this aircraft'));
   return selectView(v);
+}
+
+// ------------------------------------------------------------------ the user's own ChasePlane key bindings
+// ChasePlane stores keyboard bindings as lines "COMMAND&<flag>|Keyboard|<virtual key>|2|0;<flag>|Keyboard|<virtual key>|2|0;" (modifiers first, the
+// key last). The "command" keys of the profiles press whatever key the user has bound to the command, so changed shortcuts keep working.
+const LINE_RX = /^([A-Z][A-Z0-9_]*)(?:&|\\u0026)(.*)$/;
+function vksOfEntries(rest) {
+  const vks = [];
+  for (const e of String(rest).split(';')) {
+    if (!e.trim()) continue;
+    const f = e.split('|');
+    if (f.length < 3 || f[1] !== 'Keyboard') return null;       // a mouse / controller part: not something a key press can do
+    const vk = parseInt(f[2], 10);
+    if (!(vk >= 1 && vk <= 254)) return null;
+    vks.push(vk);
+  }
+  return vks.length ? vks : null;
+}
+function parseMappingText(text) {          // control_mappings text (user_settings.json) -> Map COMMAND -> [ [vk, vk, ...], ... ]
+  const map = new Map();
+  for (const raw of String(text || '').split(/\r?\n|\\n/)) {
+    const m = LINE_RX.exec(raw.trim());
+    if (!m) continue;
+    const vks = vksOfEntries(m[2]);
+    if (!vks) continue;
+    if (!map.has(m[1])) map.set(m[1], []);
+    map.get(m[1]).push(vks);
+  }
+  return map;
+}
+function collectStrings(node, out, depth = 0) {
+  if (out.length > 50000 || depth > 8) return out;
+  if (typeof node === 'string') out.push(node);
+  else if (Array.isArray(node)) for (const x of node) collectStrings(x, out, depth + 1);
+  else if (node && typeof node === 'object') for (const k of Object.keys(node)) collectStrings(node[k], out, depth + 1);
+  return out;
+}
+// The shape of the Bridge's get_all_assignments reply is not documented (the Bridge's own web UI reads aircraft, devices, events, views, groups,
+// mappings, keyboard_naming, named_assignments from it). Be tolerant: the mappings as text, any text in the reply that has the line format above,
+// or objects with a command name and Keyboard entries.
+function extractBindings(reply) {
+  let h = reply;
+  for (let i = 0; i < 4 && h && typeof h === 'object'; i++, h = h.payload) {
+    if (typeof h.mappings === 'string') { const m = parseMappingText(h.mappings); if (m.size) return m; }
+  }
+  const text = parseMappingText(collectStrings(reply, []).join('\n'));
+  if (text.size) return text;
+  const map = new Map();
+  const walk = (n, d) => {
+    if (!n || typeof n !== 'object' || d > 8) return;
+    if (Array.isArray(n)) { for (const x of n) walk(x, d + 1); return; }
+    const cmd = ['event', 'command', 'name', 'cmd', 'id', 'action'].map((k) => n[k]).find((v) => typeof v === 'string' && /^CAM_[A-Z0-9_]+$/.test(v));
+    if (cmd) {
+      for (const k of Object.keys(n)) {
+        const v = n[k];
+        if (typeof v === 'string') { const vks = vksOfEntries(v); if (vks) { if (!map.has(cmd)) map.set(cmd, []); map.get(cmd).push(vks); } }
+        else if (Array.isArray(v) && v.length && v.every((x) => x && typeof x === 'object' && /keyboard/i.test(String(x.device || x.type || x.kind || '')) && Number.isFinite(Number(x.code !== undefined ? x.code : (x.vk !== undefined ? x.vk : x.key)))))
+          { if (!map.has(cmd)) map.set(cmd, []); map.get(cmd).push(v.map((x) => Number(x.code !== undefined ? x.code : (x.vk !== undefined ? x.vk : x.key)))); }
+      }
+    }
+    for (const k of Object.keys(n)) walk(n[k], d + 1);
+  };
+  walk(reply, 0);
+  return map;
+}
+function settingsCandidates() {
+  if (process.env.CHASEPLANE_SETTINGS_FILE) return [process.env.CHASEPLANE_SETTINGS_FILE];
+  const app = process.env.APPDATA || '', local = process.env.LOCALAPPDATA || '';
+  return [
+    path.join(app, 'Microsoft Flight Simulator 2024', 'WASM', 'MSFS2024', 'p42-util-chaseplane', 'work', 'user_settings.json'),
+    path.join(local, 'Packages', 'Microsoft.Limitless_8wekyb3d8bbwe', 'LocalState', 'WASM', 'MSFS2024', 'p42-util-chaseplane', 'work', 'user_settings.json'),
+    path.join(app, 'Microsoft Flight Simulator', 'Packages', 'p42-util-chaseplane', 'work', 'user_settings.json'),
+    path.join(local, 'Packages', 'Microsoft.FlightSimulator_8wekyb3d8bbwe', 'LocalState', 'packages', 'p42-util-chaseplane', 'work', 'user_settings.json'),
+  ];
+}
+function readSettingsBindings() {          // fallback when the Bridge cannot tell: ChasePlane's own settings file (the newest one if there are several)
+  let best = null;
+  for (const f of settingsCandidates()) {
+    try { const st = fs.statSync(f); if (!best || st.mtimeMs > best.mtime) best = { f, mtime: st.mtimeMs }; } catch (e) { /* not there */ }
+  }
+  if (!best) return null;
+  try { return parseMappingText(JSON.parse(fs.readFileSync(best.f, 'utf8').replace(/^﻿/, '')).control_mappings); }
+  catch (e) { log('could not read key bindings from', best.f, String(e)); return null; }
+}
+
+const binds = { map: new Map(), source: 'none', at: 0, busy: false, sampleSaved: false };
+function bindingFor(cmd) { const list = binds.map.get(cmd); return list && list.length ? list[0] : null; }
+async function refreshBindings(force) {
+  if (binds.busy) { if (force) binds.again = true; return; }          // a forced refresh that arrives meanwhile runs right after
+  if (!force && Date.now() - binds.at < 5000) return;
+  binds.busy = true;
+  try {
+    let map = null, source = '';
+    if (bridge.ready) {
+      try {
+        const r = await req('get_all_assignments');
+        if (!binds.sampleSaved) {          // keep the first real reply: it shows what the Bridge really sends
+          binds.sampleSaved = true;
+          try { fs.writeFileSync(path.join(path.dirname(LOG_FILE), 'assignments-sample.json'), safeJson(r).slice(0, 400000)); } catch (e) { /* diagnostics only */ }
+          log('get_all_assignments reply', r && typeof r === 'object' ? Object.keys(r) : typeof r);
+        }
+        const m = extractBindings(r);
+        if (m.size >= 3) { map = m; source = 'bridge'; } else log('get_all_assignments: no key bindings recognised in the reply');
+      } catch (e) { log('get_all_assignments failed', String(e)); }
+    }
+    if (!map) { const f = readSettingsBindings(); if (f && f.size) { map = f; source = 'settings file'; } }
+    if (map) {
+      if (source !== binds.source || map.size !== binds.map.size) log('key bindings from', source + ':', map.size, 'commands');
+      binds.map = map; binds.source = source;
+    } else if (binds.source === 'none') log('no key bindings known yet (Bridge offline and no ChasePlane settings file found)');
+  } finally {
+    binds.busy = false; binds.at = Date.now();
+    if (binds.again) { binds.again = false; refreshBindings(true); }
+  }
+}
+
+// ------------------------------------------------------------------ keysend.exe: presses the keys
+const ks = { proc: null, held: new Map(), waiting: [], buf: '' };          // held: context -> key codes that are down for that Stream Deck key
+function keysendFail(why) { const w = ks.waiting; ks.waiting = []; ks.buf = ''; for (const f of w) f('err ' + why); }
+function keysendProc() {
+  if (ks.proc && ks.proc.exitCode === null && !ks.proc.killed) return ks.proc;
+  try {
+    const opts = { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true };
+    // the helper ends (and lets go of every key) when this plugin process ends, and only types into the flight simulator's window
+    const args = ['--parent', String(process.pid)];
+    if (process.env.CPDECK_ANYWINDOW !== '1') args.push('--require-foreground', 'FlightSimulator');
+    const p = /\.js$/i.test(KEYSEND) ? spawn(process.execPath, [KEYSEND].concat(args), opts) : spawn(KEYSEND, args, opts);
+    p.on('error', (e) => { log('keysend error', String(e)); if (ks.proc === p) { ks.proc = null; keysendFail('helper error'); } });
+    p.on('exit', (c) => { log('keysend exited', c); if (ks.proc === p) { ks.proc = null; keysendFail('helper exited'); } });
+    p.stdin.on('error', () => { /* handled by the exit event */ });
+    p.stdout.on('data', (d) => {                                // one answer line per command, in order
+      ks.buf += d;
+      let i;
+      while ((i = ks.buf.indexOf('\n')) >= 0) {
+        const line = ks.buf.slice(0, i).trim(); ks.buf = ks.buf.slice(i + 1);
+        if (!line) continue;
+        const w = ks.waiting.shift();
+        if (w) w(line); else log('keysend', line);
+      }
+    });
+    p.stderr.on('data', (d) => log('keysend stderr', String(d).trim()));
+    ks.proc = p;
+  } catch (e) { log('could not start keysend', String(e)); ks.proc = null; }
+  return ks.proc;
+}
+function sendKeys(verb, vks) {                                  // -> Promise of the helper's answer line ("ok ..." or "err ...")
+  return new Promise((resolve) => {
+    const p = keysendProc();
+    if (!p) { resolve('err no key helper'); return; }
+    const timer = setTimeout(() => { log('keysend did not answer; restarting it'); try { p.kill(); } catch (e) { /* ignore */ } if (ks.proc === p) ks.proc = null; keysendFail('no answer'); }, 3000);
+    ks.waiting.push((line) => { clearTimeout(timer); resolve(line); });
+    try { p.stdin.write(verb + ' ' + vks.join(' ') + '\n'); }
+    catch (e) { log('keysend write failed', String(e)); clearTimeout(timer); ks.waiting.pop(); resolve('err ' + e.message); }
+  });
+}
+function releaseHeld(ctx) {
+  const vks = ks.held.get(ctx);
+  if (vks) { ks.held.delete(ctx); sendKeys('up', vks); }
+}
+function releaseAll() { for (const ctx of Array.from(ks.held.keys())) releaseHeld(ctx); }
+process.on('exit', () => { try { if (ks.proc) ks.proc.kill(); } catch (e) { /* ignore */ } });
+
+// a "command" key: the Bridge for the speed profile, otherwise the key the user has bound to the ChasePlane command
+async function commandDown(ctx, k) {
+  const cmd = String((k.settings || {}).command || '');
+  if (!cmd) { log('command key without a command', k.settings); alertKey(ctx); return; }
+  if (Object.prototype.hasOwnProperty.call(SPEED, cmd)) { await req('set_control_profile', { mode: SPEED[cmd] }); return; }
+  let combo = bindingFor(cmd);
+  if (!combo) { await refreshBindings(true); combo = bindingFor(cmd); }      // maybe the user has just assigned it
+  if (!combo) { log('no key assigned in ChasePlane for', cmd, '(run ChasePlane Deck Setup to add it, or assign it in ChasePlane)'); alertKey(ctx); return; }
+  releaseHeld(ctx);
+  const verb = k.isDown ? 'down' : 'tap';                         // let go while we looked the key up: a quick press instead of a stuck key
+  const reply = await sendKeys(verb, combo);
+  if (!/^ok/.test(reply)) {
+    if (/not-foreground/.test(reply)) log('key not sent: the flight simulator is not the window in front (' + reply.replace(/^err not-foreground\s*/, '') + ')');
+    else log('key not sent for', cmd, reply);
+    alertKey(ctx);
+    return;
+  }
+  if (verb === 'down') {
+    if (k.isDown) ks.held.set(ctx, combo);
+    else sendKeys('up', combo);                                   // released while the helper was answering
+  }
 }
 
 // ------------------------------------------------------------------ Stream Deck connection
@@ -320,6 +517,10 @@ function render(ctx) {
     let lit = false;
     try { lit = bridge.ready && STATIC[k.id].lit(); } catch (e) { lit = false; }
     once(k, 'state', lit ? 1 : 0, (s) => setState(ctx, s));
+  } else if (k.id === 'cmd' && CMD_LIT[(k.settings || {}).command]) {
+    let lit = false;
+    try { lit = bridge.ready && CMD_LIT[k.settings.command](); } catch (e) { lit = false; }
+    once(k, 'state', lit ? 1 : 0, (s) => setState(ctx, s));
   }
 }
 function renderAll() { for (const ctx of keys.keys()) render(ctx); }
@@ -328,6 +529,11 @@ async function onKeyDown(ctx) {
   const k = keys.get(ctx);
   if (!k) return;
   if (k.id === 'status') { return; }
+  if (k.id === 'cmd') {           // works without the Bridge too: it only needs to know the key the user bound
+    k.isDown = true;
+    try { await commandDown(ctx, k); } catch (e) { log('action failed', 'cmd', (k.settings || {}).command, String(e)); alertKey(ctx); }
+    return;
+  }
   if (!bridge.ready) { log('key pressed while Bridge offline:', k.id); alertKey(ctx); return; }
   try {
     if (k.id === 'view') {
@@ -351,7 +557,8 @@ function onSD(text) {
       keys.set(m.context, { id: String(m.action || '').slice(PREFIX.length), settings: (m.payload && m.payload.settings) || {}, sent: {} });
       render(m.context);
       break;
-    case 'willDisappear': keys.delete(m.context); break;
+    case 'willDisappear': releaseHeld(m.context); keys.delete(m.context); break;
+    case 'keyUp': { const k = keys.get(m.context); if (k) k.isDown = false; releaseHeld(m.context); break; }
     case 'didReceiveSettings': {
       const k = keys.get(m.context);
       if (k) { k.settings = (m.payload && m.payload.settings) || {}; k.sent = {}; render(m.context); }
@@ -379,9 +586,15 @@ function main() {
   if (!a.port || !a.pluginUUID || !a.registerEvent) { log('missing Stream Deck arguments', process.argv.slice(2)); process.exit(1); }
   log('plugin starting; node', process.version, 'bridge', BRIDGE_URL);
   sd = new WS('ws://127.0.0.1:' + a.port);
-  sd.on('open', () => { sd.send(JSON.stringify({ event: a.registerEvent, uuid: a.pluginUUID })); connectBridge(); });
+  sd.on('open', () => {
+    sd.send(JSON.stringify({ event: a.registerEvent, uuid: a.pluginUUID }));
+    connectBridge();
+    refreshBindings(true);                                           // from ChasePlane's settings file until the Bridge answers
+    setInterval(() => { if (bridge.ready) refreshBindings(true); }, 60000).unref();      // pick up shortcuts the user changes while flying
+  });
   sd.on('message', onSD);
   sd.on('error', (e) => log('Stream Deck socket error', String(e)));
-  sd.on('close', () => { log('Stream Deck socket closed, exiting'); process.exit(0); });
+  sd.on('close', () => { log('Stream Deck socket closed, exiting'); releaseAll(); process.exit(0); });
 }
-main();
+if (require.main === module) main();
+else module.exports = { parseMappingText, extractBindings, vksOfEntries };       // for the tests

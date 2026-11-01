@@ -32,15 +32,17 @@ A free, unofficial Stream Deck plugin with a ready-made profile for **every Stre
 
 ## The extra ChasePlane keys
 
-Most keys talk to ChasePlane directly and need nothing. A few (peek up/down/back, roll, speed, binoculars, night vision, exposure, depth of field, head tracking) need a keyboard shortcut in ChasePlane. Setup adds them (`Ctrl+Alt` + a function key, digit or letter) to ChasePlane's `user_settings.json`:
+Views, cameras, cinematic, flashlight, the nearest tower / runway / parking / spotting, drone, flyby, traffic and the three speeds talk to ChasePlane directly through its Bridge and need nothing. The other keys (move, look, zoom, peek, roll, binoculars, night vision, exposure, depth of field, head tracking, ...) press **the keyboard shortcut you have set for that command in ChasePlane**. The plugin reads your shortcuts from ChasePlane while it runs, so if you changed them, or other people have other ones, the deck follows. Only a command that has no shortcut yet needs one. Setup can add those (a `Ctrl+Alt` combination) to ChasePlane's `user_settings.json`:
 
 - *Install / update* asks first and tells you how many it would add; answer **No** (or use *Plugin only*) and ChasePlane's settings stay completely untouched,
 - a backup is saved next to the file first, plus a second copy in `%APPDATA%\ChasePlane Deck\Backups` (outside ChasePlane's folder); after writing, Setup reads the file back and puts the original back if it is not exactly as intended,
-- a command that already has a key is left alone, and a shortcut that another command already uses is skipped,
-- *Key list...* shows every shortcut so you can assign them by hand in ChasePlane > Preferences > Control Assignments instead,
+- a command that already has a key is left alone; if the combination Setup wants is used by another command, it picks a free one (`Ctrl+Alt+Shift+...`) instead, because the deck reads whichever key it is,
+- *Key list...* shows every command so you can assign them by hand in ChasePlane > Preferences > Control Assignments instead,
 - if you use ChasePlane cloud sync, ChasePlane may bring back its cloud copy of the settings; assign the keys by hand then.
 
-Some keys (move, look, zoom, peek left/right, boost) use ChasePlane's **default** shortcuts. If you changed those in ChasePlane, Setup tells you which ones differ.
+A deck key whose command has no shortcut (or whose shortcut is a mouse button) flashes when you press it, and the plugin log says which command it was. The plugin presses keys only while the flight simulator window is in front, never into another window. It does that with a small helper, `keysend.exe`, in the plugin folder.
+
+The *Hotkeys-only* profiles are different: their keys send fixed shortcuts (the `Ctrl+Alt` ones above and ChasePlane's defaults), so those need the exact shortcuts of the key list.
 
 ## Which profile do I get
 
@@ -58,17 +60,18 @@ Dials and touch strips are not used. The *Hotkeys-only profile...* button in Set
 ## Problems
 
 - **Status key stays red / "BRIDGE OFFLINE"**: start MSFS and ChasePlane; the plugin reconnects by itself within seconds.
-- **Keys do nothing**: check ChasePlane's Control Assignments for the command; if MSFS/ChasePlane runs as administrator, run the Stream Deck app as administrator too.
+- **A key flashes and does nothing**: the command has no keyboard shortcut in ChasePlane (assign one in Control Assignments or let Setup add it), or the flight simulator window is not in front.
+- **Keys do nothing**: if MSFS/ChasePlane runs as administrator, run the Stream Deck app as administrator too.
 - **Plugin log**: `%APPDATA%\Elgato\StreamDeck\Plugins\com.chaseplanexl.deck.sdPlugin\logs\plugin.log`
 - **A tab opens the wrong page**: please report it with your deck model.
 - **Remove**: delete the plugin in the Stream Deck app (More actions > Plugins) and use *Undo keys* in Setup.
 
 ## Please note
 
-- Version 1.0. The plugin was tested against a simulated ChasePlane Bridge and a simulated Stream Deck, and the profile files were checked structurally. Reports from real decks (especially Mini, Neo, +, + XL and Studio) are very welcome.
+- The plugin was tested against a simulated ChasePlane Bridge and a simulated Stream Deck, and the profile files were checked structurally. Reading the key list, the speed keys and pressing a key (the in/out camera switch, with the user's own shortcut) were also checked against a running ChasePlane. Reports from real decks (especially Mini, Neo, +, + XL and Studio) are very welcome.
 - The plugin uses ChasePlane's local Bridge (`ws://127.0.0.1:8652`). That interface is not officially documented, so a ChasePlane update can change it. The `hotkeys-only` profiles are the fallback.
 - Independent project. Not affiliated with, endorsed by or supported by Parallel 42, Elgato or Microsoft. ChasePlane, Stream Deck and Microsoft Flight Simulator are trademarks of their owners.
-- Setup does not install anything outside the Stream Deck plugin folder (via the Stream Deck app), a temporary file in `%TEMP%\ChasePlaneDeckSetup`, copies of ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, and the backup/edit of ChasePlane's `user_settings.json` that you approve by clicking Install. Without a built-in update address it does not use the network at all; with one, it only requests that one small file when it starts.
+- Setup does not install anything outside the Stream Deck plugin folder (via the Stream Deck app; that folder includes the small key helper `keysend.exe`), a temporary file in `%TEMP%\ChasePlaneDeckSetup`, copies of ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, and the backup/edit of ChasePlane's `user_settings.json` that you approve by clicking Install. Without a built-in update address it does not use the network at all; with one, it only requests that one small file when it starts.
 
 ## Building from source (Windows)
 

@@ -239,6 +239,10 @@ $BridgeActions = [ordered]@{
     'world.flyby'       = @{ name = 'Flyby camera';        label = 'FLYBY';            icon = 'flyby';       cat = 'world' }
     'world.traffic'     = @{ name = 'Traffic camera';      label = 'TRAFFIC';          icon = 'traffic';     cat = 'world' }
 }
+# ChasePlane commands that the Bridge can run itself (plugin: set_control_profile); the plugin profiles need no ChasePlane key for them
+$BridgeNative = @('CAM_CONTROL_PROFILE_SLOW', 'CAM_CONTROL_PROFILE_NORMAL', 'CAM_CONTROL_PROFILE_FAST')
+# command keys that get a second, lit face because the Bridge reports their state (control_profile, head_tracking_enabled in cam_mode_set)
+$BridgeLit = @('CAM_CONTROL_PROFILE_SLOW', 'CAM_CONTROL_PROFILE_NORMAL', 'CAM_CONTROL_PROFILE_FAST', 'CAM_HEAD_TRACKING_TOGGLE')
 function B($c, $r, $id) { $a = $BridgeActions[$id]; @{ c = $c; r = $r; bridge = $id; label = $a.label; icon = $a.icon; cat = $a.cat } }
 function V($c, $r, $slot) { @{ c = $c; r = $r; slot = $slot; label = ''; icon = 'none'; cat = 'mode' } }
 function S($c, $r) { @{ c = $c; r = $r; status = $true; label = ''; icon = 'status'; cat = 'reset' } }
@@ -563,7 +567,7 @@ function Build-Profile($PageList, [string]$OutFile, [string]$Name, [string]$Prev
     $fs = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::CreateNew)
     $zip = New-Object System.IO.Compression.ZipArchive($fs, [System.IO.Compression.ZipArchiveMode]::Create)
     if ($v3) {
-        $req = @('com.elgato.streamdeck.page', 'com.elgato.streamdeck.system.hotkey'); if ($IsBridge) { $req += $PluginId }
+        $req = @('com.elgato.streamdeck.page'); if ($IsBridge) { $req += $PluginId } else { $req += 'com.elgato.streamdeck.system.hotkey' }
         $pkg = [ordered]@{ AppVersion = '7.4.2.22730'; DeviceModel = $Dev.model; DeviceSettings = $null; FormatVersion = 1
                            OSType = 'Windows'; OSVersion = '10.0.26200'; RequiredPlugins = $req }
         Add-ZipBytes $zip 'package.json' ($Utf8.GetBytes((To-Json $pkg)))
@@ -614,14 +618,25 @@ function Build-Profile($PageList, [string]$OutFile, [string]$Name, [string]$Prev
             } else {
                 $combo = Get-Combo $k.cmd
                 $png = Get-KeyPng $k.icon $k.label $k.cat $false; $faces[$pos] = $png
-                $hk = @((New-Hotkey $combo), (New-EmptyHotkey), (New-EmptyHotkey), (New-EmptyHotkey))
-                $act = [ordered]@{ ActionID = (New-Uuid); LinkedTitle = $true; Name = 'Hotkey'
-                                   Settings = [ordered]@{ Coalesce = $true; Hotkeys = $hk }
-                                   State = 0; States = @((New-State (Put-Image $png))); UUID = 'com.elgato.streamdeck.system.hotkey' }
-                if ($v3) { $act['Plugin'] = $hkPlugin; $act['Resources'] = $null }
+                if ($IsBridge) {
+                    # plugin profile: the plugin presses the key the user has bound to this command in ChasePlane (the speed keys go through the Bridge)
+                    $cmdStates = @((New-State (Put-Image $png)))
+                    if ($BridgeLit -contains $k.cmd) { $cmdStates += (New-State (Put-Image (Get-KeyPng $k.icon $k.label $k.cat $true))) }      # the plugin lights these (active speed, head tracking on)
+                    $act = [ordered]@{ ActionID = (New-Uuid); LinkedTitle = $true; Name = 'ChasePlane command'; Plugin = $plugin; Resources = $null
+                                       Settings = [ordered]@{ command = $k.cmd }; State = 0
+                                       States = $cmdStates; UUID = "$PluginId.cmd" }
+                } else {
+                    $hk = @((New-Hotkey $combo), (New-EmptyHotkey), (New-EmptyHotkey), (New-EmptyHotkey))
+                    $act = [ordered]@{ ActionID = (New-Uuid); LinkedTitle = $true; Name = 'Hotkey'
+                                       Settings = [ordered]@{ Coalesce = $true; Hotkeys = $hk }
+                                       State = 0; States = @((New-State (Put-Image $png))); UUID = 'com.elgato.streamdeck.system.hotkey' }
+                    if ($v3) { $act['Plugin'] = $hkPlugin; $act['Resources'] = $null }
+                }
                 if (-not $seen.ContainsKey($k.cmd)) {
                     $seen[$k.cmd] = $true
-                    $used.Add([pscustomobject]@{ Command = $k.cmd; Keys = $combo; Page = $pi + 1; Button = ($k.label -replace "`n", ' ' -replace '- ', '') })
+                    if (-not ($IsBridge -and ($BridgeNative -contains $k.cmd))) {      # commands the Bridge does itself need no ChasePlane key
+                        $used.Add([pscustomobject]@{ Command = $k.cmd; Keys = $combo; Page = $pi + 1; Button = ($k.label -replace "`n", ' ' -replace '- ', '') })
+                    }
                 }
             }
             $actions[$pos] = $act
@@ -905,12 +920,20 @@ foreach ($id in $BridgeActions.Keys) {
     Save-Face (Join-Path $actDir $id) (Get-KeyPng $a.icon $a.label $a.cat $false)
     Save-Face (Join-Path $actDir "${id}_lit") (Get-KeyPng $a.icon $a.label $a.cat $true)
 }
+Save-Face (Join-Path $actDir 'cmd') (Get-KeyPng 'bolt' '' 'speed' $false)
+Save-Face (Join-Path $actDir 'cmd_lit') (Get-KeyPng 'bolt' '' 'speed' $true)
 Save-Face (Join-Path $actDir 'view') (Get-TilePng 'view_m0')
 Save-Face (Join-Path $actDir 'status') (Get-TilePng 'status'); Save-Face (Join-Path $actDir 'status_lit') (Get-TilePng 'status_lit')
 foreach ($n in 'view_m0', 'view_m0_lit', 'view_m1', 'view_m1_lit', 'view_m2', 'view_m2_lit', 'view_empty', 'view_offline') { [System.IO.File]::WriteAllBytes((Join-Path $keyDir "$n.png"), (Get-TilePng $n)) }
 $iconPng = Get-KeyPng 'overview' '' 'mode' $false 60 40
 [System.IO.File]::WriteAllBytes((Join-Path $plgDir 'icon.png'), (Resize-Png $iconPng 256)); [System.IO.File]::WriteAllBytes((Join-Path $plgDir 'icon@2x.png'), (Resize-Png $iconPng 512))
 [System.IO.File]::WriteAllBytes((Join-Path $plgDir 'category.png'), (Resize-Png $iconPng 28)); [System.IO.File]::WriteAllBytes((Join-Path $plgDir 'category@2x.png'), (Resize-Png $iconPng 56))
+
+# keysend.exe: the helper that presses keys for the "command" keys (compiled with the csc.exe that ships with Windows)
+$Csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+$KeySendExe = Join-Path $PluginDir 'bin\keysend.exe'
+& $Csc /nologo /target:exe /optimize+ /platform:anycpu "/out:$KeySendExe" (Join-Path $Root 'plugin\keysend\KeySend.cs')
+if ($LASTEXITCODE -ne 0) { throw "csc failed for keysend.exe ($LASTEXITCODE)" }
 
 # .streamDeckPlugin = zip of the .sdPlugin folder (without logs)
 if (Test-Path $PluginFile) { Remove-Item $PluginFile -Force }

@@ -81,9 +81,9 @@ Een view-toets instellen: klik in de Stream Deck-app op de toets, kies **Camera 
 
 ## ChasePlane instellen (eenmalig, alleen voor de extra toetsen)
 
-De Bridge-toetsen hebben **niets** nodig. Bewegen, kijken, zoomen, boost en peek links/rechts gebruiken toetsen die al in jouw ChasePlane staan (gelezen uit je `user_settings.json`): `CAM_QUICK_VIEW_LEFT`, `CAM_QUICK_VIEW_RIGHT`, `CAM_PREV_VIEW`, `CAM_FLASHLIGHT_TOGGLE`, `CAM_NEXT_VIEW`, `CAM_TOGGLE_IN_OUT`, `CAM_RESET`, `CAM_ZOOM_IN`, `CAM_ZOOM_OUT`, `CAM_MOVE_D`, `CAM_MOVE_L`, `CAM_MOVE_F`, `CAM_MOVE_B`, `CAM_MOVE_U`, `CAM_MOVE_R`, `CAM_ROT_L`, `CAM_BOOST_SET`, `CAM_ROT_U`, `CAM_ROT_D`, `CAM_ROT_R`.
+De Bridge-toetsen hebben **niets** nodig (ook de drie snelheden niet: die gaan via `set_control_profile`). Alle andere toetsen van het plugin-profiel zijn "ChasePlane command"-toetsen: de plugin vraagt de Bridge (`get_all_assignments`, bij een ontbrekende Bridge het bestand `user_settings.json`) welke sneltoets de gebruiker voor dat commando heeft en drukt **die** toets met `keysend.exe`. Heeft een gebruiker een standaardtoets veranderd, dan volgt de deck dat. Bewegen, kijken, zoomen, boost en peek links/rechts gebruiken meestal toetsen die al in ChasePlane staan: `CAM_QUICK_VIEW_LEFT`, `CAM_QUICK_VIEW_RIGHT`, `CAM_PREV_VIEW`, `CAM_FLASHLIGHT_TOGGLE`, `CAM_NEXT_VIEW`, `CAM_TOGGLE_IN_OUT`, `CAM_RESET`, `CAM_ZOOM_IN`, `CAM_ZOOM_OUT`, `CAM_MOVE_D`, `CAM_MOVE_L`, `CAM_MOVE_F`, `CAM_MOVE_B`, `CAM_MOVE_U`, `CAM_MOVE_R`, `CAM_ROT_L`, `CAM_BOOST_SET`, `CAM_ROT_U`, `CAM_ROT_D`, `CAM_ROT_R`.
 
-Een aantal extra toetsen heeft een eigen sneltoets nodig (`Ctrl+Alt` + F-toets, cijfer of letter). **Voor het plugin-profiel zijn dat 21 toetsen:**
+Een aantal extra toetsen heeft een eigen sneltoets nodig (`Ctrl+Alt` + F-toets, cijfer of letter). **Voor het plugin-profiel zijn dat 18 toetsen** (is `Ctrl+Alt+…` al van een ander commando, dan kiest de installer `Ctrl+Alt+Shift+…`; de plugin leest toch welke toets het is):
 
 | Tabblad | Knop | ChasePlane-opdracht | Toets |
 |---|---|---|---|
@@ -91,9 +91,6 @@ Een aantal extra toetsen heeft een eigen sneltoets nodig (`Ctrl+Alt` + F-toets, 
 | World | PEEK DOWN | `CAM_QUICK_VIEW_DOWN` | `Ctrl+Alt+F11` |
 | World | PEEK UP | `CAM_QUICK_VIEW_UP` | `Ctrl+Alt+F7` |
 | World | RESET ZOOM | `CAM_RESET_ZOOM` | `Ctrl+Alt+7` |
-| Fly cam | SPEED FAST | `CAM_CONTROL_PROFILE_FAST` | `Ctrl+Alt+3` |
-| Fly cam | SPEED NORMAL | `CAM_CONTROL_PROFILE_NORMAL` | `Ctrl+Alt+2` |
-| Fly cam | SPEED SLOW | `CAM_CONTROL_PROFILE_SLOW` | `Ctrl+Alt+1` |
 | Fly cam | DRAG MODE | `CAM_DRAG_TOGGLE` | `Ctrl+Alt+5` |
 | Fly cam | RESET HORIZON | `CAM_RESET_ORIENT` | `Ctrl+Alt+8` |
 | Fly cam | ROLL LEFT | `CAM_ROLL_L` | `Ctrl+Alt+4` |
@@ -109,13 +106,15 @@ Een aantal extra toetsen heeft een eigen sneltoets nodig (`Ctrl+Alt` + F-toets, 
 | FX | AUTO FOCUS | `CAM_TOGGLE_DOF_AUTOFOCUS` | `Ctrl+Alt+X` |
 | FX | NIGHT VISION | `CAM_TOGGLE_NVG` | `Ctrl+Alt+C` |
 
+De drie snelheidstoetsen (`CAM_CONTROL_PROFILE_SLOW/NORMAL/FAST`, `Ctrl+Alt+1/2/3`) gebruikt alleen de hotkeys-versie; de plugin zet de snelheid via de Bridge en laat de actieve snelheid oplichten.
+
 Toewijzen kan met de installer (knop *Keys only*), of met het script (sluit eerst MSFS en ChasePlane); beide doen precies hetzelfde:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "build\Apply-ChasePlaneKeys.ps1" -HybridOnly
 ```
 
-Het script voegt alleen die toetsen toe aan `user_settings.json`, maakt eerst een back-up (`user_settings.json.bak-…`) en doet niets dubbel als je het opnieuw draait. Met `-DryRun` zie je eerst wat er gebeurt; zonder `-HybridOnly` komen ook de 19 toetsen voor de hotkeys-versie erbij. Terugdraaien: kopieer de back-up terug. Zie je de toetsen na het starten van ChasePlane niet staan (cloud-sync staat aan), wijs ze dan met de hand toe: ChasePlane → Menu → Preferences → Control Assignments.
+Het script voegt alleen die toetsen toe aan `user_settings.json`, maakt eerst een back-up (`user_settings.json.bak-…`) en doet niets dubbel als je het opnieuw draait. Met `-DryRun` zie je eerst wat er gebeurt; zonder `-HybridOnly` komen ook de 21 toetsen voor de hotkeys-versie erbij. Terugdraaien: kopieer de back-up terug. Zie je de toetsen na het starten van ChasePlane niet staan (cloud-sync staat aan), wijs ze dan met de hand toe: ChasePlane → Menu → Preferences → Control Assignments.
 
 Toetsen die alleen de hotkeys-versie (B) gebruikt:
 
@@ -145,12 +144,14 @@ Toetsen die alleen de hotkeys-versie (B) gebruikt:
 
 ChasePlane's Bridge (`CP MSFS Bridge.exe`) draait een lokale WebSocket op `ws://127.0.0.1:8652`. De plugin meldt zich daar aan als client en stuurt commando's zoals `set_camera_mode`, `get_views`, `set_view_by_guid`, `cam_go_to_nearest`, `cam_cinematic_toggle` en `cam_flashlight_toggle`, en leest meldingen als `cam_mode_set` voor de live toetsen. Die berichten heb ik gelezen uit de web-UI die in de Bridge zelf zit (de ChasePlane-afstandsbediening). **De API is niet officieel gedocumenteerd**: een ChasePlane-update kan hem veranderen.
 
-- De plugin is getest tegen een nagemaakte Bridge en een nagemaakte Stream Deck (32 controles, `test\plugin-test.js`), niet tegen echt ChasePlane, MSFS of de Stream Deck-app. De eerste echte test is bij jou.
+- De plugin is getest tegen een nagemaakte Bridge en een nagemaakte Stream Deck (`test\plugin-test.js`; de toetsen drukken daarin een nep-verzender, nooit echte toetsen), niet in de Stream Deck-app zelf.
+- **Live gecontroleerd tegen een draaiende ChasePlane (1 nov 2026, alleen lezen, plus één snelheidswissel die direct is teruggezet):** `get_all_assignments` geeft `mappings` als lijst tekstregels in het formaat van `control_mappings` terug (de parser van de plugin leest die goed: dezelfde 21 commando's als in het bestand), alle 60 commandonamen van `chaseplane-keymap.csv` bestaan in deze ChasePlane, `set_control_profile {mode:0|1|2}` werkt (status 200 en de Bridge meldt de nieuwe waarde terug in `cam_mode_set.control_profile`). `test\Probe-Bridge.js` doet dat opnieuw (zonder `--test-speed` is het alleen lezen).
+- **Ook live gecontroleerd (1 nov 2026):** een toets die `keysend.exe` met SendInput verstuurt komt in ChasePlane aan, terwijl MSFS vooraan staat (ChasePlane leest het toetsenbord via de MSFS-venster-invoer). `test\Live-KeyTest.js` doet dat: klik eerst op het MSFS-venster; het drukt de eigen toets van de gebruiker voor `CAM_TOGGLE_IN_OUT` twee keer en kijkt via de Bridge of de camera wisselt en terugkomt (uitslag: cockpit -> external -> cockpit, PASS). Alleen die ene toets is zo getest, als korte aanslag; de "vasthouden"-toetsen (boost, binoculars hold) en de overige commando's zijn niet apart live geprobeerd.
 - De profielen heb ik niet in de Stream Deck-app geïmporteerd. Ik heb de structuur nagebouwd naar profielen die Elgato zelf meelevert (Plus XL en andere standaardprofielen) en naar de GSX-plugin, en `test\Validate-Profiles.ps1` controleert alle 14 bestanden (toetsen binnen het raster van het model, afbeeldingen aanwezig, tab- en volgende-pagina-toetsen wijzen naar een bestaande pagina, plugin-acties bestaan, `DeviceType` klopt). Dat bewijst niet dat de app ze accepteert.
 - Het modelnummer van de Stream Deck Studio (`20GBL9901`) is een aanname; de andere modelnummers komen uit Elgato's eigen bestanden. Bij de plugin-route bepaalt vooral het `DeviceType` welk profiel bij welk deck hoort. Werkt een profiel voor jouw model niet, zeg het dan: dan pas ik dat model aan.
 - De paginanummers van de tab- en volgende-pagina-toetsen (1 = eerste pagina) heb ik afgeleid uit Elgato's eigen Plus XL-profiel: daar staat een mixer-toets met nummer 3, en de mixer-pagina is de derde pagina. Zeker weten doe ik het niet.
-- Welke velden de Bridge precies stuurt voor "cinematic aan" of "zaklamp aan" weet ik niet zeker; die twee toetsen lichten daarom alleen op als de Bridge zo'n melding stuurt. Ze werken wel als knop.
-- Een plugin-toets stuurt de Bridge een commando, niet een sneltoets; MSFS of ChasePlane hoeft dus niet het actieve venster te zijn.
+- De Bridge meldt `cinematic_enabled`, `control_profile` en `head_tracking_enabled` in `cam_mode_set` en `flashlight_enabled` in `sim_state`; daarmee lichten de cinematic-, snelheids-, head-tracking- en zaklamp-toetsen op.
+- Een Bridge-toets (view, camera, cinematic, zaklamp, snelheid) stuurt de Bridge een commando; MSFS hoeft dan niet het actieve venster te zijn. Een "ChasePlane command"-toets drukt een echte sneltoets met `keysend.exe` (`plugin\keysend\KeySend.cs`, wordt bij het bouwen met `csc.exe` gemaakt) en doet dat alleen als een venster met `FlightSimulator` in de naam vooraan staat; anders knippert de toets. `keysend.exe` laat alle toetsen los als de plugin eindigt (`--parent`) of een toets langer dan 2 minuten blijft hangen.
 
 ## Problemen oplossen
 

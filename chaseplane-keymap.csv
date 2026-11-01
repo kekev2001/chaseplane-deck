@@ -34,13 +34,13 @@ CAM_CENTER_TRAFFIC_VIEW,Ctrl+Alt+F19,new,2,"TRAFFIC VIEW",no,
 CAM_CENTER_TRAFFIC_TRACK,Ctrl+Alt+F22,new,2,"TRAFFIC TRACK",no,
 CAM_MOVE_D,Shift+Q,existing,3,"DOWN",yes,3
 CAM_MOVE_L,Shift+A,existing,3,"LEFT",yes,3
-CAM_CONTROL_PROFILE_SLOW,Ctrl+Alt+1,new,3,"SPEED SLOW",yes,3
+CAM_CONTROL_PROFILE_SLOW,Ctrl+Alt+1,new,3,"SPEED SLOW",no,
 CAM_MOVE_F,Shift+W,existing,3,"FORWARD",yes,3
 CAM_MOVE_B,Shift+S,existing,3,"BACK",yes,3
-CAM_CONTROL_PROFILE_NORMAL,Ctrl+Alt+2,new,3,"SPEED NORMAL",yes,3
+CAM_CONTROL_PROFILE_NORMAL,Ctrl+Alt+2,new,3,"SPEED NORMAL",no,
 CAM_MOVE_U,Shift+E,existing,3,"UP",yes,3
 CAM_MOVE_R,Shift+D,existing,3,"RIGHT",yes,3
-CAM_CONTROL_PROFILE_FAST,Ctrl+Alt+3,new,3,"SPEED FAST",yes,3
+CAM_CONTROL_PROFILE_FAST,Ctrl+Alt+3,new,3,"SPEED FAST",no,
 CAM_ROLL_L,Ctrl+Alt+4,new,3,"ROLL LEFT",yes,3
 CAM_ROT_L,Shift+J,existing,3,"LOOK LEFT",yes,3
 CAM_BOOST_SET,PageUp,existing,3,"BOOST (HOLD)",yes,3
