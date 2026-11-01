@@ -958,6 +958,25 @@ function Write-Montage([string]$prefix, [string]$outFile, [string]$title) {
     }
     $g.Dispose(); $sheet.Save($outFile, [System.Drawing.Imaging.ImageFormat]::Png); $sheet.Dispose()
 }
+# optional: CP_PREVIEW_RAW = folder for one sharp sheet per page of every plugin profile (144 px keys, no gaps, example view names), used to draw promo images
+if ($Preview -and $env:CP_PREVIEW_RAW) {
+    New-Item -ItemType Directory -Force -Path $env:CP_PREVIEW_RAW | Out-Null
+    foreach ($name in @($script:PreviewData.Keys | Where-Object { $_ -like '*_br_*' })) {
+        $pd = $script:PreviewData[$name]; $kw = 144
+        $sheet = New-Object System.Drawing.Bitmap ($pd.cols * $kw), ($pd.rows * $kw)
+        $g = [System.Drawing.Graphics]::FromImage($sheet); $g.InterpolationMode = 'HighQualityBicubic'; $g.TextRenderingHint = 'AntiAliasGridFit'
+        $tf = New-Object System.Drawing.Font('Segoe UI', [single]($kw * 0.165), [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $sf = New-Object System.Drawing.StringFormat; $sf.Alignment = 'Center'; $sf.LineAlignment = 'Far'
+        foreach ($kv in $pd.faces.GetEnumerator()) {
+            $cr = $kv.Key.Split(','); $x = [int]$cr[0] * $kw; $y = [int]$cr[1] * $kw
+            $img = [System.Drawing.Image]::FromStream((New-Object System.IO.MemoryStream (, [byte[]]$kv.Value)))
+            $g.DrawImage($img, $x, $y, $kw, $kw); $img.Dispose()
+            if ($pd.titles.ContainsKey($kv.Key)) { $g.DrawString($pd.titles[$kv.Key], $tf, [System.Drawing.Brushes]::White, (New-Object System.Drawing.RectangleF ($x + 3), ($y + 3), ($kw - 6), ($kw - 10)), $sf) }
+        }
+        $g.Dispose(); $sheet.Save((Join-Path $env:CP_PREVIEW_RAW "$name.png"), [System.Drawing.Imaging.ImageFormat]::Png); $sheet.Dispose()
+    }
+    Write-Host "Raw sheets: $env:CP_PREVIEW_RAW"
+}
 if ($Preview) {
     New-Item -ItemType Directory -Force -Path $Preview | Out-Null
     Get-ChildItem $Preview -Filter *.png -File | Remove-Item -Force
