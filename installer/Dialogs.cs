@@ -82,6 +82,50 @@ namespace ChasePlaneDeckSetup
         }
     }
 
+    // pick which saved copy of ChasePlane's settings to restore, and whether only the shortcuts or the whole file
+    internal sealed class BackupForm : Form
+    {
+        readonly ListView lv;
+        readonly RadioButton rbFile;
+        readonly Button ok;
+        readonly List<BackupInfo> list;
+        public BackupInfo Chosen { get; private set; }
+        public bool WholeFile { get { return rbFile.Checked; } }
+
+        public BackupForm(List<BackupInfo> backups)
+        {
+            list = backups;
+            Text = Loc.T("Restore ChasePlane shortcuts", "ChasePlane-sneltoetsen terugzetten");
+            AutoScaleMode = AutoScaleMode.None;
+            ClientSize = new Size(Ui.S(640), Ui.S(430));
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false; MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterParent;
+            Font = new Font("Segoe UI", 9F);
+            Controls.Add(Ui.Text(Loc.T("Setup saves a copy of ChasePlane's settings before it changes anything. Choose the copy to take your shortcuts from. The copy with the most shortcuts that ChasePlane does not have now is selected.", "Setup bewaart een kopie van de ChasePlane-instellingen voordat het iets wijzigt. Kies de kopie waaruit je sneltoetsen terug moeten komen. De kopie met de meeste sneltoetsen die ChasePlane nu niet heeft is al gekozen."), 16, 12, 608, 44, Color.Black));
+            lv = new ListView { Left = Ui.S(16), Top = Ui.S(64), Width = Ui.S(608), Height = Ui.S(210), View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false };
+            lv.Columns.Add(Loc.T("Made", "Gemaakt"), Ui.S(140));
+            lv.Columns.Add(Loc.T("Shortcuts in it", "Sneltoetsen erin"), Ui.S(110));
+            lv.Columns.Add(Loc.T("Not in ChasePlane now", "Nu niet in ChasePlane"), Ui.S(155));
+            lv.Columns.Add(Loc.T("Saved", "Bewaard"), Ui.S(185));
+            foreach (BackupInfo b in list)
+                lv.Items.Add(new ListViewItem(new string[] { b.Time.ToString("g"), b.Shortcuts.ToString(), b.Missing.ToString(), b.Own ? Loc.T("in Setup's own folder", "in de eigen map van Setup") : Loc.T("next to ChasePlane's file", "naast het ChasePlane-bestand") }));
+            Controls.Add(lv);
+            RadioButton rbKeys = new RadioButton { Text = Loc.T("Only my shortcuts (recommended): everything else in ChasePlane stays as it is now", "Alleen mijn sneltoetsen (aanbevolen): al het andere in ChasePlane blijft zoals het nu is"), Left = Ui.S(16), Top = Ui.S(286), Width = Ui.S(608), Height = Ui.S(24), Checked = true };
+            rbFile = new RadioButton { Text = Loc.T("The whole settings file as it was in this copy", "Het hele instellingenbestand zoals het in deze kopie was"), Left = Ui.S(16), Top = Ui.S(314), Width = Ui.S(608), Height = Ui.S(24) };
+            Controls.Add(rbKeys); Controls.Add(rbFile);
+            Controls.Add(Ui.Text(Loc.T("The file as it is now is saved first. After restoring only the shortcuts, Setup adds its deck keys again without touching yours.", "Het bestand zoals het nu is wordt eerst bewaard. Na het terugzetten van alleen de sneltoetsen voegt Setup zijn deck-toetsen opnieuw toe zonder de jouwe aan te raken."), 16, 346, 608, 40, ColorTranslator.FromHtml("#6A7280")));
+            ok = new Button { Text = Loc.T("Restore", "Terugzetten"), Left = Ui.S(414), Top = Ui.S(388), Width = Ui.S(100), Height = Ui.S(32), DialogResult = DialogResult.OK, Enabled = false };
+            ok.Click += delegate { Chosen = lv.SelectedIndices.Count > 0 ? list[lv.SelectedIndices[0]] : null; };
+            Button cancel = new Button { Text = Loc.T("Cancel", "Annuleren"), Left = Ui.S(524), Top = Ui.S(388), Width = Ui.S(100), Height = Ui.S(32), DialogResult = DialogResult.Cancel };
+            Controls.Add(ok); Controls.Add(cancel);
+            AcceptButton = ok; CancelButton = cancel;
+            lv.SelectedIndexChanged += delegate { ok.Enabled = lv.SelectedIndices.Count > 0; };
+            BackupInfo best = KeyTool.BestBackup(list);
+            if (best != null) { int i = list.IndexOf(best); lv.Items[i].Selected = true; lv.EnsureVisible(i); }
+        }
+    }
+
     // pick the Stream Deck model whose hotkeys-only profile should be imported
     internal sealed class HotkeyForm : Form
     {

@@ -1,5 +1,5 @@
 {
-    "version":  "1.0.0.0",
+    "version":  "1.0.1.0",
     "url":  "https://github.com/kekev2001/chaseplane-deck/releases/latest",
-    "notes":  "First public version."
+    "notes":  "Safer ChasePlane shortcuts: Setup now asks before it changes anything, keeps an extra backup, can restore your own shortcuts and never writes to a settings file ChasePlane has not filled yet."
 }

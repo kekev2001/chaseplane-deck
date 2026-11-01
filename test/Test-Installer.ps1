@@ -7,11 +7,14 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $Root = Split-Path $PSScriptRoot -Parent
 $Exe = Join-Path $Root 'release\ChasePlane-Deck-Setup.exe'
+$Ver = (Get-Content (Join-Path $Root 'VERSION') -Raw).Trim()          # the version this build carries (plugin and installer)
+$VerRx = [regex]::Escape($Ver)
 $Work = Join-Path ([System.IO.Path]::GetTempPath()) ('cpdeck-test-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 $Plugins = Join-Path $Work 'plugins'; New-Item -ItemType Directory -Force -Path $Plugins | Out-Null
 $env:CPDECK_PLUGINS_DIR = $Plugins
 $env:CPDECK_UPDATE_URL = ''
+$env:CPDECK_BACKUP_DIR = Join-Path $Work 'own-backups'
 $pass = 0; $fail = 0
 function Check([bool]$ok, [string]$msg) { if ($ok) { $script:pass++ } else { $script:fail++; Write-Host "FAIL: $msg" -ForegroundColor Red } }
 function Run([string]$exeArgs) {
@@ -74,17 +77,17 @@ Check ($r.Log -match 'Bridge') 'bridge line missing'
 [System.IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $Root 'ChasePlane XL.streamDeckPlugin'), $Plugins)
 $null = Run "/silent /noplugin /settings:`"$s4`""
 $r = Run "/silent /repair /dryrun /settings:`"$s4`""
-Check ($r.Code -eq 0 -and $r.Log -match 'installed \(1\.0\.0\.0\) and its files are intact' -and $r.Log -match 'All deck keys are set') "repair, healthy: $($r.Log)"
+Check ($r.Code -eq 0 -and $r.Log -match ('installed \(' + $VerRx + '\) and its files are intact') -and $r.Log -match 'All deck keys are set') "repair, healthy: $($r.Log)"
 $pj = Join-Path $Plugins 'com.chaseplanexl.deck.sdPlugin\bin\plugin.js'
 Add-Content $pj '// tampered'
 $r = Run "/silent /repair /dryrun /settings:`"$s4`""
 Check ($r.Code -eq 1 -and $r.Log -match 'damaged' -and $r.Log -match 'plugin\.js') "repair, damaged: $($r.Log)"
 $mf = Join-Path $Plugins 'com.chaseplanexl.deck.sdPlugin\manifest.json'
 $orig = [System.IO.File]::ReadAllText($mf)
-[System.IO.File]::WriteAllText($mf, ($orig -replace '"Version": "1\.0\.0\.0"', '"Version": "0.9.0.0"'), (New-Object System.Text.UTF8Encoding $false))
+[System.IO.File]::WriteAllText($mf, ($orig -replace ('"Version": "' + $VerRx + '"'), '"Version": "0.9.0.0"'), (New-Object System.Text.UTF8Encoding $false))
 $r = Run "/silent /repair /dryrun /settings:`"$s4`""
-Check ($r.Code -eq 1 -and $r.Log -match 'out of date: installed 0\.9\.0\.0, this Setup has 1\.0\.0\.0') "repair, outdated: $($r.Log)"
-[System.IO.File]::WriteAllText($mf, ($orig -replace '"Version": "1\.0\.0\.0"', '"Version": "2.0.0.0"'), (New-Object System.Text.UTF8Encoding $false))
+Check ($r.Code -eq 1 -and $r.Log -match ('out of date: installed 0\.9\.0\.0, this Setup has ' + $VerRx)) "repair, outdated: $($r.Log)"
+[System.IO.File]::WriteAllText($mf, ($orig -replace ('"Version": "' + $VerRx + '"'), '"Version": "2.0.0.0"'), (New-Object System.Text.UTF8Encoding $false))
 $r = Run "/silent /repair /dryrun /settings:`"$s4`""
 Check ($r.Log -match 'newer plugin \(2\.0\.0\.0\)') "repair, newer plugin: $($r.Log)"
 
@@ -136,6 +139,55 @@ Check ($r.Log -match '21 toe te voegen' -and $r.Log -match 'proefrun') "dutch lo
 $r = Run "/silent /repair /dryrun /lang:nl /settings:`"$s8`""
 Check ($r.Log -match 'De plugin is niet' -and $r.Log -match 'toetsen ontbreken') "dutch repair: $($r.Log)"
 
+# ---- 8b. Setup's own copy outside ChasePlane's folder
+$s11 = NewSettings 's11'
+$null = Run "/silent /noplugin /settings:`"$s11`""
+$src = @(Get-ChildItem $env:CPDECK_BACKUP_DIR -Recurse -Filter source.txt -ErrorAction SilentlyContinue | Where-Object { (Get-Content $_.FullName -Raw).Trim() -ceq $s11 })
+Check ($src.Count -eq 1) 'the own copy folder should say which file it belongs to'
+$oc = if ($src.Count -eq 1) { @(Get-ChildItem $src[0].DirectoryName -Filter 'user_settings.json.bak-*') } else { @() }
+Check ($oc.Count -eq 1 -and (Get-Content $oc[0].FullName -Raw) -ceq $Base) 'Setup should keep its own copy of the original outside ChasePlane''s folder'
+
+# ---- 8b2. /nokeys leaves ChasePlane's settings completely alone (no change, no backup, no own copy)
+$s11b = NewSettings 's11b'
+$before = @(Get-ChildItem $env:CPDECK_BACKUP_DIR -Recurse -File -ErrorAction SilentlyContinue).Count
+$r = Run "/silent /noplugin /nokeys /settings:`"$s11b`""
+Check ($r.Code -eq 0 -and (Get-Content $s11b -Raw) -ceq $Base -and -not (Test-Path ($s11b + '.bak-*')) -and (@(Get-ChildItem $env:CPDECK_BACKUP_DIR -Recurse -File -ErrorAction SilentlyContinue)).Count -eq $before) "/nokeys must not touch the settings: $($r.Log)"
+
+# ---- 8c. ChasePlane has not saved its shortcut list yet: write nothing (a list of only our keys could replace the defaults)
+$empty = '{"version":3,"ui_compact":false,"control_mappings":"","named_assignments":[]}'
+$s12 = NewSettings 's12' $empty
+$r = Run "/silent /noplugin /settings:`"$s12`""
+Check ($r.Code -eq 1 -and $r.Log -match 'has not saved its shortcut list' -and (Get-Content $s12 -Raw) -ceq $empty -and -not (Test-Path ($s12 + '.bak-*'))) "empty list must not be written: $($r.Log)"
+$odd = '{"version":3,"control_mappings":"CAM_OTHER_THING&1|Keyboard|162|2|0;1|Keyboard|49|2|0;\n","named_assignments":[]}'
+$s12b = NewSettings 's12b' $odd
+$r = Run "/silent /noplugin /settings:`"$s12b`""
+Check ($r.Code -eq 1 -and $r.Log -match 'has not saved its shortcut list' -and (Get-Content $s12b -Raw) -ceq $odd) "a list without ChasePlane's defaults must not be written: $($r.Log)"
+$r = Run "/silent /repair /noplugin /dryrun /settings:`"$s12`""
+Check ($r.Code -eq 1 -and $r.Log -match 'has not saved its shortcut list') "check must report an unusable list: $($r.Log)"
+
+# ---- 8d. the user's own shortcuts are gone afterwards: restore only the shortcuts, even when the newest backup is already the post-loss one
+$custom = $Base.Replace('"control_mappings":"', '"control_mappings":"CAM_OTHER_THING&1|Keyboard|162|2|0;1|Keyboard|49|2|0;\nCAM_MINE_TWO&1|Keyboard|164|2|0;1|Keyboard|50|2|0;\n')
+$s13 = NewSettings 's13' $custom
+$r = Run "/silent /noplugin /settings:`"$s13`""
+Check ($r.Code -eq 0 -and $r.Log -match '21 to add') "install on a list with the user's own shortcuts: $($r.Log)"
+Check ((Lines $s13) -match '^CAM_OTHER_THING&' -and (Lines $s13) -match '^CAM_MINE_TWO&') 'the user''s own shortcuts must survive the install'
+$reset = $Base.Replace('"ui_compact":false', '"ui_compact":true')                       # what a reset looks like: defaults only, another setting changed
+[System.IO.File]::WriteAllText($s13, $reset, (New-Object System.Text.UTF8Encoding $false))
+$r = Run "/silent /repair /noplugin /dryrun /settings:`"$s13`""
+Check ($r.Log -match '2 of your shortcuts in the backup of') "check should notice the lost shortcuts: $($r.Log)"
+$null = Run "/silent /noplugin /settings:`"$s13`""                                       # a second install: its backup is the post-loss file
+$r = Run "/silent /restorekeys /settings:`"$s13`""
+Check ($r.Code -eq 0 -and $r.Log -match 'back-?up user_settings\.json\.bak-\S+: \d+ shortcuts, 2 not in ChasePlane now' -and $r.Log -match 'your shortcuts are back') "restore shortcuts: $($r.Log)"
+Check ((Lines $s13) -match '^CAM_OTHER_THING&' -and (Lines $s13) -match '^CAM_MINE_TWO&' -and (Lines $s13) -match '^CAM_QUICK_VIEW_BEHIND&') 'after restoring: own shortcuts and deck keys must both be there'
+Check ((Get-Content $s13 -Raw | ConvertFrom-Json).ui_compact -eq $true) 'restoring only the shortcuts must leave the other settings as they are now'
+$r = Run "/silent /restorekeys /settings:`"$s13`""
+Check ($r.Code -eq 0 -and $r.Log -match 'nothing to restore') "nothing left to restore: $($r.Log)"
+$r = Run "/silent /restorekeys /backup:does-not-exist /settings:`"$s13`""
+Check ($r.Code -eq 1 -and $r.Log -match 'was not found') "unknown backup: $($r.Log)"
+$pre = Get-Content $s13 -Raw
+$r = Run "/silent /restorekeys /backup:user_settings.json.bak-nope /settings:`"$s13`""
+Check ((Get-Content $s13 -Raw) -ceq $pre) 'a failed restore must not change the file'
+
 # ---- 9. update check against a local server
 $port = 18000 + (Get-Random -Maximum 1000)
 $listener = New-Object System.Net.HttpListener
@@ -154,7 +206,7 @@ function Serve([string]$json) {
 }
 $u = Serve '{"version":"1.1.0.0","url":"https://example.com/ChasePlane-Deck-1.1.0.zip","notes":"Fixes peek keys"}'
 Check ($u -match 'update 1\.1\.0\.0 https://example\.com/ChasePlane-Deck-1\.1\.0\.zip \| Fixes peek keys') "newer version: $u"
-$u = Serve '{"version":"1.0.0.0","url":"https://example.com/x.zip"}'
+$u = Serve ('{"version":"' + $Ver + '","url":"https://example.com/x.zip"}')
 Check ($u -match 'no update') "same version: $u"
 $u = Serve '{"version":"9.0.0.0","url":"http://example.com/x.zip"}'
 Check ($u -match 'no update') "non-https download link must be refused: $u"
@@ -178,7 +230,7 @@ foreach ($f in (Get-ChildItem (Join-Path $Root 'hotkeys-only') -Filter *.streamD
 Check ($same -and $count -eq 7 -and (@(Get-ChildItem $exp)).Count -eq 7) 'the 7 embedded hotkeys-only profiles must equal the files in hotkeys-only\'
 
 # ---- 10c. the dialogs render in both languages
-foreach ($dlg in 'help', 'remove', 'hk') {
+foreach ($dlg in 'help', 'remove', 'hk', 'backup') {
     foreach ($lang in 'en', 'nl') {
         $png = Join-Path $Work "dlg-$dlg-$lang.png"
         $p = Start-Process -FilePath $Exe -ArgumentList "/lang:$lang /dialog:$dlg /screenshot:`"$png`"" -Wait -PassThru

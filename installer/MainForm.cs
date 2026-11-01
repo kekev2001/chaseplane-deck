@@ -166,7 +166,7 @@ namespace ChasePlaneDeckSetup
             btnRemove.Text = Loc.T("Remove...", "Verwijderen...");
             btnPlugin.Text = Loc.T("Plugin only", "Alleen plugin");
             btnKeys.Text = Loc.T("Keys only", "Alleen toetsen");
-            btnUndo.Text = Loc.T("Restore backup", "Herstel back-up");
+            btnUndo.Text = Loc.T("Restore backup...", "Herstel back-up...");
             btnList.Text = Loc.T("Key list...", "Toetsenlijst...");
             btnChoose.Text = Loc.T("Choose file...", "Kies bestand...");
             btnHk.Text = Loc.T("Hotkeys-only profile (no plugin)...", "Hotkeys-only profiel (zonder plugin)...");
@@ -276,7 +276,7 @@ namespace ChasePlaneDeckSetup
                 bool pluginOk = DoPlugin();
                 Log("");
                 Log(Loc.T("== ChasePlane keys ==", "== ChasePlane-toetsen =="));
-                bool keysOk = DoKeys();
+                bool keysOk = DoKeysAsk();
                 Log("");
                 if (pluginOk && keysOk) Log(Loc.T("All done. Open the Stream Deck app and pick the ChasePlane profile for your deck.", "Klaar. Open de Stream Deck-app en kies het ChasePlane-profiel voor je deck."));
                 else Log(Loc.T("Finished with notes above. You can run any step again.", "Klaar, met opmerkingen hierboven. Je kunt elke stap opnieuw uitvoeren."));
@@ -348,6 +348,30 @@ namespace ChasePlaneDeckSetup
             }
         }
 
+        // used by Install: say how many shortcuts would be added and let the user keep ChasePlane's settings file completely untouched
+        bool DoKeysAsk()
+        {
+            List<string> t = Targets();
+            if (t.Count == 0 || opt.DryRun) return DoKeys();
+            int toAdd = 0;
+            foreach (string f in t)
+            {
+                ApplyResult r = KeyTool.Apply(f, keys, chkAll.Checked, true, new NullLog(), true);
+                if (r.Ok) toAdd += r.Added;
+            }
+            if (toAdd == 0) return DoKeys();
+            DialogResult a = MessageBox.Show(this,
+                Loc.T("Setup can add {0} keyboard shortcuts (Ctrl+Alt + a key) to ChasePlane for the deck keys that need them.\n\nYour own shortcuts are not changed or removed, and a backup of the settings file is made first.\n\nYes = add them.\nNo = leave ChasePlane's settings completely alone (those deck keys then do nothing until you assign them yourself; see 'Key list...').",
+                      "Setup kan {0} sneltoetsen (Ctrl+Alt + een toets) aan ChasePlane toevoegen voor de deck-toetsen die ze nodig hebben.\n\nJe eigen sneltoetsen worden niet gewijzigd of verwijderd, en eerst wordt een back-up van het instellingenbestand gemaakt.\n\nJa = toevoegen.\nNee = ChasePlane's instellingen helemaal met rust laten (die deck-toetsen doen dan niets totdat je ze zelf toewijst; zie 'Toetsenlijst...').", toAdd),
+                "ChasePlane Deck Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (a != DialogResult.Yes)
+            {
+                Log(Loc.T("  ChasePlane's settings were left untouched. Click 'Keys only' later to add the {0} shortcuts, or assign them by hand ('Key list...').", "  ChasePlane's instellingen zijn niet aangeraakt. Klik later op 'Alleen toetsen' om de {0} sneltoetsen toe te voegen, of wijs ze zelf toe ('Toetsenlijst...').", toAdd));
+                return true;
+            }
+            return DoKeys();
+        }
+
         bool DoKeys()
         {
             List<string> t = Targets();
@@ -375,12 +399,19 @@ namespace ChasePlaneDeckSetup
             if (!WaitForSimClosed()) { Log(Loc.T("  Skipped: close MSFS / ChasePlane first.", "  Overgeslagen: sluit eerst MSFS / ChasePlane.")); return; }
             foreach (string f in t)
             {
-                string b = KeyTool.LatestBackup(f);
-                if (b == null) { Log(Loc.T("  {0}: no backup found.", "  {0}: geen back-up gevonden.", f)); continue; }
-                DialogResult r = MessageBox.Show(this,
-                    Loc.T("Restore ChasePlane's settings from this backup?\n\n{0}\n(made {1})\n\nThe file as it is now is kept next to it.", "De instellingen van ChasePlane terugzetten uit deze back-up?\n\n{0}\n(gemaakt op {1})\n\nHet bestand zoals het nu is blijft ernaast bewaard.", b, File.GetLastWriteTime(b).ToString("g")),
-                    "ChasePlane Deck Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (r == DialogResult.Yes) KeyTool.Restore(f, b, this);
+                Log("  " + f);
+                List<BackupInfo> list = KeyTool.ListBackups(f, keys);
+                if (list.Count == 0) { Log(Loc.T("  no backup found.", "  geen back-up gevonden.")); continue; }
+                using (BackupForm bf = new BackupForm(list))
+                {
+                    if (bf.ShowDialog(this) != DialogResult.OK || bf.Chosen == null) { Log(Loc.T("  cancelled.", "  geannuleerd.")); continue; }
+                    if (bf.WholeFile) KeyTool.Restore(f, bf.Chosen.Path, this);
+                    else if (KeyTool.RestoreShortcuts(f, bf.Chosen.Path, this))
+                    {
+                        Log(Loc.T("  Adding the deck keys again (your own shortcuts are not touched):", "  De deck-toetsen worden opnieuw toegevoegd (je eigen sneltoetsen blijven ongemoeid):"));
+                        KeyTool.Apply(f, keys, chkAll.Checked, opt.DryRun, this);
+                    }
+                }
             }
         }
 
@@ -428,7 +459,7 @@ namespace ChasePlaneDeckSetup
                 Log(""); Log(Loc.T("== Install again ==", "== Opnieuw installeren =="));
                 DoPlugin();
                 Log(Loc.T("== ChasePlane keys ==", "== ChasePlane-toetsen =="));
-                DoKeys();
+                DoKeysAsk();
                 Log(Loc.T("Clean reinstall started. Confirm the install in the Stream Deck app, then choose the ChasePlane profile for your deck.", "Schone herinstallatie gestart. Bevestig de installatie in de Stream Deck-app en kies daarna het ChasePlane-profiel voor je deck."));
             }
             else if (chosen.Count == 0)

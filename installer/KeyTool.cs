@@ -4,8 +4,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
@@ -13,6 +15,8 @@ using System.Web.Script.Serialization;
 namespace ChasePlaneDeckSetup
 {
     internal interface ILog { void Line(string text); }
+
+    internal sealed class NullLog : ILog { public void Line(string text) { } }
 
     internal sealed class KeyDef
     {
@@ -28,6 +32,16 @@ namespace ChasePlaneDeckSetup
     {
         public string Path;
         public string Label;
+    }
+
+    // one saved copy of the settings file (made by Setup before it changed something)
+    internal sealed class BackupInfo
+    {
+        public string Path;
+        public DateTime Time;
+        public int Shortcuts;    // the user's own bindings in it (Setup's deck keys not counted)
+        public int Missing;      // of those, how many ChasePlane does not have now
+        public bool Own;         // Setup's own copy outside ChasePlane's folder
     }
 
     internal sealed class ApplyResult
@@ -176,23 +190,71 @@ namespace ChasePlaneDeckSetup
             return p;
         }
 
-        // validate, back up, write
+        // Setup's own copy of every settings file it changes, kept OUTSIDE ChasePlane's folder: if that folder is reset,
+        // the .bak next to the settings file goes with it
+        static string OwnDir(string settingsPath)
+        {
+            string root = Environment.GetEnvironmentVariable("CPDECK_BACKUP_DIR");
+            if (string.IsNullOrEmpty(root))
+            {
+                string app = Environment.GetEnvironmentVariable("APPDATA");
+                if (string.IsNullOrEmpty(app)) return null;
+                root = System.IO.Path.Combine(app, @"ChasePlane Deck\Backups");
+            }
+            string id;
+            using (SHA1 sha = SHA1.Create())
+                id = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(settingsPath).ToLowerInvariant()))).Replace("-", "").Substring(0, 10);
+            return System.IO.Path.Combine(root, id);
+        }
+
+        static void SaveOwnCopy(string path, string stamp, ILog log)
+        {
+            try
+            {
+                string dir = OwnDir(path);
+                if (dir == null) return;
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(System.IO.Path.Combine(dir, "source.txt"), path, Encoding.UTF8);
+                File.Copy(path, Unique(System.IO.Path.Combine(dir, System.IO.Path.GetFileName(path) + ".bak-" + stamp)), false);
+            }
+            catch (Exception ex)
+            {
+                log.Line(Loc.T("  note: Setup's own extra copy could not be made ({0}); the backup next to the file was.", "  let op: de extra kopie van Setup zelf kon niet worden gemaakt ({0}); de back-up naast het bestand is wel gemaakt.", ex.Message));
+            }
+        }
+
+        // validate, back up (next to the file and in Setup's own folder), write, read it back; a result that is not exactly the intended one is rolled back
         static string Write(string path, Mapping mp, string newBody, ILog log)
         {
             string newText = mp.Text.Substring(0, mp.M.Groups[2].Index) + newBody + mp.Text.Substring(mp.M.Groups[2].Index + mp.M.Groups[2].Length);
             JavaScriptSerializer js = new JavaScriptSerializer(); js.MaxJsonLength = int.MaxValue;
             js.DeserializeObject(newText);   // must still be valid JSON
-            string backup = Unique(path + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string backup = Unique(path + ".bak-" + stamp);
             File.Copy(path, backup, false);
+            SaveOwnCopy(path, stamp, log);
             string tmp = path + ".tmp-setup";
             File.WriteAllText(tmp, newText, new UTF8Encoding(mp.Bom));
             File.Copy(tmp, path, true);
             File.Delete(tmp);
+
+            Mapping after = Read(path);
+            bool good = after != null && after.Body == newBody
+                && after.Text.Substring(0, after.M.Groups[2].Index) == mp.Text.Substring(0, mp.M.Groups[2].Index)
+                && after.Text.Substring(after.M.Groups[2].Index + after.M.Groups[2].Length) == mp.Text.Substring(mp.M.Groups[2].Index + mp.M.Groups[2].Length);
+            if (!good)
+            {
+                File.Copy(backup, path, true);
+                throw new InvalidOperationException(Loc.T("The file did not come out as intended, so your original was put back. Nothing was changed.", "Het bestand kwam er niet uit zoals bedoeld, dus je origineel is teruggezet. Er is niets gewijzigd."));
+            }
             return backup;
         }
 
         const string NoMappings = "  ERROR: no control_mappings in this file. Start ChasePlane once so it creates its key list, then run Setup again.";
         const string NoMappingsNl = "  FOUT: geen control_mappings in dit bestand. Start ChasePlane één keer zodat het zijn toetsenlijst aanmaakt en start Setup opnieuw.";
+
+        const string NotReady = "  ERROR: none of ChasePlane's own default shortcuts is in this file, so ChasePlane has not saved its shortcut list yet. Nothing was changed (ChasePlane keeps its built-in shortcuts). Start ChasePlane once, close it again and run Setup again. If this stays, assign the deck keys by hand: see 'Key list...'.";
+        const string NotReadyNl = "  FOUT: geen enkele standaard sneltoets van ChasePlane staat in dit bestand, dus ChasePlane heeft zijn sneltoetsenlijst nog niet bewaard. Er is niets gewijzigd (ChasePlane houdt zijn ingebouwde sneltoetsen). Start ChasePlane één keer, sluit het weer af en start Setup opnieuw. Blijft dit staan, wijs de deck-toetsen dan zelf toe: zie 'Toetsenlijst...'.";
 
         // ---- add the keys
         // quiet = only the summary line (used by the check)
@@ -205,6 +267,23 @@ namespace ChasePlaneDeckSetup
                 if (mp == null) { log.Line(Loc.T(NoMappings, NoMappingsNl)); res.Ok = false; return res; }
                 Dictionary<string, List<string>> byCmd = mp.ByCmd;
                 Dictionary<string, string> byCanon = mp.ByCanon;
+
+                // if none of ChasePlane's own default shortcuts is in the file, ChasePlane has not saved its list yet; adding our few keys to an
+                // empty list could make them the whole list (the user's default shortcuts gone), so do not write anything
+                int defaultsTotal = 0, defaultsPresent = 0;
+                foreach (KeyDef k in keys)
+                {
+                    if (k.IsNew || !(allKeys || k.InHybrid)) continue;
+                    defaultsTotal++;
+                    if (byCmd.ContainsKey(k.Command)) defaultsPresent++;
+                }
+                if (defaultsTotal > 0 && defaultsPresent == 0)
+                {
+                    log.Line(Loc.T(NotReady, NotReadyNl));
+                    res.Ok = false;
+                    return res;
+                }
+
                 StringBuilder add = new StringBuilder();
                 foreach (KeyDef k in keys)
                 {
@@ -307,6 +386,97 @@ namespace ChasePlaneDeckSetup
                 log.Line(Loc.T("  ERROR: {0}", "  FOUT: {0}", ex.Message));
                 res.Ok = false;
                 return res;
+            }
+        }
+
+        // ---- the saved copies of a settings file, and what ChasePlane lacks of them now
+        static readonly Regex StampRx = new Regex(@"(\d{8})-(\d{6})(?:-\d+)?$");
+
+        static DateTime BackupTime(string file)
+        {
+            Match m = StampRx.Match(System.IO.Path.GetFileName(file));
+            DateTime t;
+            if (m.Success && DateTime.TryParseExact(m.Groups[1].Value + m.Groups[2].Value, "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out t)) return t;
+            return File.GetLastWriteTime(file);
+        }
+
+        static HashSet<string> OurLines(List<KeyDef> keys)
+        {
+            HashSet<string> s = new HashSet<string>();
+            foreach (KeyDef k in keys) if (k.IsNew) s.Add(k.Command + "|" + Canon(EntryFor(k.Keys)));
+            return s;
+        }
+
+        // the user's own bindings as "COMMAND|keys", Setup's deck keys left out
+        static List<string> UserLines(Mapping mp, HashSet<string> ours)
+        {
+            List<string> r = new List<string>();
+            foreach (KeyValuePair<string, List<string>> kv in mp.ByCmd)
+                foreach (string rest in kv.Value)
+                {
+                    string id = kv.Key + "|" + Canon(rest);
+                    if (!ours.Contains(id)) r.Add(id);
+                }
+            return r;
+        }
+
+        // newest first; the same copy stored next to the settings file and in Setup's own folder shows once
+        public static List<BackupInfo> ListBackups(string path, List<KeyDef> keys)
+        {
+            HashSet<string> ours = OurLines(keys), have = new HashSet<string>();
+            try { Mapping now = Read(path); if (now != null) foreach (string id in UserLines(now, ours)) have.Add(id); } catch (Exception) { }
+
+            List<BackupInfo> list = new List<BackupInfo>();
+            HashSet<string> seen = new HashSet<string>();
+            string name = System.IO.Path.GetFileName(path);
+            string[] dirs = new string[] { System.IO.Path.GetDirectoryName(path), OwnDir(path) };
+            for (int d = 0; d < dirs.Length; d++)
+            {
+                if (dirs[d] == null || !Directory.Exists(dirs[d])) continue;
+                foreach (string pattern in new string[] { name + ".bak-*", name + ".before-restore-*" })
+                    foreach (FileInfo fi in new DirectoryInfo(dirs[d]).GetFiles(pattern))
+                    {
+                        DateTime t = BackupTime(fi.FullName);
+                        Mapping mp;
+                        try
+                        {
+                            string id;
+                            using (SHA1 sha = SHA1.Create()) id = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(fi.FullName)));
+                            if (!seen.Add(t.ToString("s") + "|" + id)) continue;
+                            mp = Read(fi.FullName);
+                        }
+                        catch (Exception) { continue; }
+                        if (mp == null) continue;
+                        List<string> mine = UserLines(mp, ours);
+                        list.Add(new BackupInfo { Path = fi.FullName, Time = t, Own = d == 1, Shortcuts = mine.Count, Missing = mine.Count(delegate(string x) { return !have.Contains(x); }) });
+                    }
+            }
+            return list.OrderByDescending(delegate(BackupInfo b) { return b.Time; }).ToList();
+        }
+
+        // the copy that has the most shortcuts ChasePlane lacks now (the newest one when equal); a copy made after the loss has none to give
+        public static BackupInfo BestBackup(List<BackupInfo> list)
+        {
+            BackupInfo best = null;
+            foreach (BackupInfo b in list) if (best == null || b.Missing > best.Missing) best = b;
+            return best;
+        }
+
+        // put the shortcut list of a backup back into the current file; every other setting stays as it is now
+        public static bool RestoreShortcuts(string path, string backup, ILog log)
+        {
+            try
+            {
+                Mapping cur = Read(path), old = Read(backup);
+                if (cur == null || old == null) { log.Line(Loc.T(NoMappings, NoMappingsNl)); return false; }
+                string saved = Write(path, cur, old.Body, log);
+                log.Line(Loc.T("  your shortcuts are back (from {0}). The file as it was is kept as {1}.", "  je sneltoetsen zijn terug (uit {0}). Het bestand zoals het was blijft bewaard als {1}.", System.IO.Path.GetFileName(backup), System.IO.Path.GetFileName(saved)));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                log.Line(Loc.T("  ERROR: {0}", "  FOUT: {0}", ex.Message));
+                return false;
             }
         }
 

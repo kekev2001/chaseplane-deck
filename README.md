@@ -28,13 +28,14 @@ A free, unofficial Stream Deck plugin with a ready-made profile for **every Stre
 - **Update:** download the new exe, run the new `ChasePlane-Deck-Setup.exe` and click *Install / update*. Setup shows which plugin version is installed and which one it carries; keys that are already set are not added twice. If the author built an update address into Setup, it tells you when a newer version exists (a link only; nothing is downloaded or run automatically).
 - **Check & fix:** checks the Stream Deck app, whether the plugin is installed and intact, whether all keys are set in ChasePlane, whether the ChasePlane Bridge answers, and what the plugin log last complained about. Whatever Setup can fix itself (reinstall the plugin, add missing keys) it does after you confirm.
 - **Remove...:** you choose what goes: the keys Setup added to ChasePlane (only those exact shortcuts, with a backup), the plugin, and the ChasePlane profiles in the Stream Deck app (moved to a backup folder next to ProfilesV3, not deleted). Tick *Install again afterwards* for a clean reinstall. The Stream Deck app is closed and started again for that.
-- **Restore backup:** puts `user_settings.json` back as it was before Setup.
+- **Restore backup...:** if shortcuts of yours are gone from ChasePlane, pick one of the saved copies (the one with the most shortcuts ChasePlane lacks now is pre-selected). *Only my shortcuts* brings your shortcut list back and leaves every other setting as it is now; Setup then adds its deck keys again without touching yours. *The whole settings file* puts `user_settings.json` back as it was in that copy. The file as it is now is saved first. Setup works only on a ChasePlane that has saved its own shortcut list; if that list is still empty it changes nothing.
 
 ## The extra ChasePlane keys
 
 Most keys talk to ChasePlane directly and need nothing. A few (peek up/down/back, roll, speed, binoculars, night vision, exposure, depth of field, head tracking) need a keyboard shortcut in ChasePlane. Setup adds them (`Ctrl+Alt` + a function key, digit or letter) to ChasePlane's `user_settings.json`:
 
-- a backup is saved next to the file first (`Undo keys` in Setup puts it back),
+- *Install / update* asks first and tells you how many it would add; answer **No** (or use *Plugin only*) and ChasePlane's settings stay completely untouched,
+- a backup is saved next to the file first, plus a second copy in `%APPDATA%\ChasePlane Deck\Backups` (outside ChasePlane's folder); after writing, Setup reads the file back and puts the original back if it is not exactly as intended,
 - a command that already has a key is left alone, and a shortcut that another command already uses is skipped,
 - *Key list...* shows every shortcut so you can assign them by hand in ChasePlane > Preferences > Control Assignments instead,
 - if you use ChasePlane cloud sync, ChasePlane may bring back its cloud copy of the settings; assign the keys by hand then.
@@ -67,7 +68,7 @@ Dials and touch strips are not used. The *Hotkeys-only profile...* button in Set
 - Version 1.0. The plugin was tested against a simulated ChasePlane Bridge and a simulated Stream Deck, and the profile files were checked structurally. Reports from real decks (especially Mini, Neo, +, + XL and Studio) are very welcome.
 - The plugin uses ChasePlane's local Bridge (`ws://127.0.0.1:8652`). That interface is not officially documented, so a ChasePlane update can change it. The `hotkeys-only` profiles are the fallback.
 - Independent project. Not affiliated with, endorsed by or supported by Parallel 42, Elgato or Microsoft. ChasePlane, Stream Deck and Microsoft Flight Simulator are trademarks of their owners.
-- Setup does not install anything outside the Stream Deck plugin folder (via the Stream Deck app), a temporary file in `%TEMP%\ChasePlaneDeckSetup`, and the backup/edit of ChasePlane's `user_settings.json` that you approve by clicking Install. Without a built-in update address it does not use the network at all; with one, it only requests that one small file when it starts.
+- Setup does not install anything outside the Stream Deck plugin folder (via the Stream Deck app), a temporary file in `%TEMP%\ChasePlaneDeckSetup`, copies of ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, and the backup/edit of ChasePlane's `user_settings.json` that you approve by clicking Install. Without a built-in update address it does not use the network at all; with one, it only requests that one small file when it starts.
 
 ## Building from source (Windows)
 

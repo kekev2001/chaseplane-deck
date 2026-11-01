@@ -10,9 +10,11 @@ namespace ChasePlaneDeckSetup
         public Version Installed, Bundled;
         public List<string> Damaged = new List<string>();
         public int KeysMissing;
+        public bool KeysUnusable;    // a settings file Setup cannot work with (no key list yet, unreadable)
+        public int ShortcutsLost;    // the user's own shortcuts from a backup that ChasePlane does not have now (information only)
         public bool NeedsPlugin { get { return StreamDeckFound && (!PluginInstalled || PluginOutdated || Damaged.Count > 0); } }
         public bool NeedsKeys { get { return KeysMissing > 0; } }
-        public bool AnyProblem { get { return !StreamDeckFound || NeedsPlugin || NeedsKeys; } }
+        public bool AnyProblem { get { return !StreamDeckFound || NeedsPlugin || NeedsKeys || KeysUnusable; } }
     }
 
     internal static class Actions
@@ -67,9 +69,22 @@ namespace ChasePlaneDeckSetup
                 log.Line("  " + t);
                 ApplyResult r = KeyTool.Apply(t, keys, allKeys, true, log, true);
                 d.KeysMissing += r.Added;
-                if (!r.Ok) continue;
+                if (!r.Ok) { d.KeysUnusable = true; continue; }
                 if (r.Added == 0) log.Line(Ok + Loc.T("All deck keys are set in ChasePlane.", "Alle deck-toetsen staan in ChasePlane."));
                 else log.Line(Bad + Loc.T("{0} keys are missing in ChasePlane.", "{0} toetsen ontbreken in ChasePlane.", r.Added));
+
+                // the user's own shortcuts: are they still what the backups say? (a deliberate change in ChasePlane shows up here too, so information only)
+                List<BackupInfo> backups = KeyTool.ListBackups(t, keys);
+                BackupInfo best = KeyTool.BestBackup(backups);
+                if (backups.Count == 0)
+                    log.Line("  --  " + Loc.T("No backup of this file yet (Setup makes one before it changes anything).", "Nog geen back-up van dit bestand (Setup maakt er een voordat het iets wijzigt)."));
+                else if (best.Missing > 0)
+                {
+                    d.ShortcutsLost += best.Missing;
+                    log.Line("  --  " + Loc.T("{0} of your shortcuts in the backup of {1} are not in ChasePlane now. If that is not on purpose, click 'Restore backup' and choose 'shortcuts only'.", "{0} van je sneltoetsen uit de back-up van {1} staan nu niet in ChasePlane. Is dat niet de bedoeling, klik dan op 'Herstel back-up' en kies 'alleen sneltoetsen'.", best.Missing, best.Time.ToString("g")));
+                }
+                else
+                    log.Line(Ok + Loc.T("{0} backups kept; every shortcut in them is still in ChasePlane.", "{0} back-ups bewaard; elke sneltoets daarin staat nog in ChasePlane.", backups.Count));
             }
 
             // 4. ChasePlane Bridge (only reachable while MSFS + ChasePlane run)

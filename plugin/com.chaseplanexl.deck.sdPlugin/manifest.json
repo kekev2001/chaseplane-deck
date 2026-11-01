@@ -6,7 +6,7 @@
   "Category": "ChasePlane",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/icon",
-  "Version": "1.0.0.0",
+  "Version": "1.0.1.0",
   "CodePath": "bin/plugin.js",
   "Nodejs": {
     "Version": "20"

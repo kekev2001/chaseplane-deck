@@ -4,7 +4,9 @@
 //   /repair             (with /silent) check everything and fix what is wrong
 //   /remove /yes        (with /silent) remove the keys Setup added and the plugin
 //   /undo               (with /silent) restore the newest backup of user_settings.json
-//   /checkupdate        (with /silent) print whether a newer version is announced
+//   /restorekeys        (with /silent) put the user's shortcut list back from the backup that has the most shortcuts ChasePlane lacks now,
+//                       then add the deck keys again; /backup:<file> chooses the backup
+//   /checkupdate       (with /silent) print whether a newer version is announced
 //   /noplugin /nokeys   skip the plugin step / the key step
 //   /allkeys            also handle the keys that only the hotkeys-only profiles use
 //   /settings:<file>    use this user_settings.json instead of looking for it
@@ -24,8 +26,8 @@ namespace ChasePlaneDeckSetup
 {
     internal sealed class Options
     {
-        public bool Silent, NoPlugin, NoKeys, NoProfiles, AllKeys, DryRun, IgnoreProcesses, Undo, Repair, Remove, Yes, NoStreamDeck, CheckUpdate;
-        public string Settings, LogFile, Screenshot, Lang, ExportHk, Dialog;
+        public bool Silent, NoPlugin, NoKeys, NoProfiles, AllKeys, DryRun, IgnoreProcesses, Undo, RestoreKeys, Repair, Remove, Yes, NoStreamDeck, CheckUpdate;
+        public string Settings, LogFile, Screenshot, Lang, ExportHk, Dialog, Backup;
 
         public static Options Parse(string[] args)
         {
@@ -43,6 +45,8 @@ namespace ChasePlaneDeckSetup
                 else if (l == "/dryrun") o.DryRun = true;
                 else if (l == "/ignoreprocesses") o.IgnoreProcesses = true;
                 else if (l == "/undo") o.Undo = true;
+                else if (l == "/restorekeys") o.RestoreKeys = true;
+                else if (l.StartsWith("/backup:")) o.Backup = a.Substring(8).Trim('"');
                 else if (l == "/repair") o.Repair = true;
                 else if (l == "/remove") o.Remove = true;
                 else if (l == "/yes") o.Yes = true;
@@ -87,6 +91,14 @@ namespace ChasePlaneDeckSetup
                 if (o.Dialog == "help") shown = new HelpForm();
                 else if (o.Dialog == "remove") shown = new RemoveForm(PluginTool.FindProfiles(), true);
                 else if (o.Dialog == "hk") shown = new HotkeyForm();
+                else if (o.Dialog == "backup")
+                {
+                    List<BackupInfo> sample = new List<BackupInfo>();
+                    sample.Add(new BackupInfo { Path = "user_settings.json.bak-20261101-181500", Time = new DateTime(2026, 11, 1, 18, 15, 0), Shortcuts = 12, Missing = 0 });
+                    sample.Add(new BackupInfo { Path = "user_settings.json.bak-20261101-174000", Time = new DateTime(2026, 11, 1, 17, 40, 0), Shortcuts = 34, Missing = 22 });
+                    sample.Add(new BackupInfo { Path = "user_settings.json.bak-20261030-210500", Time = new DateTime(2026, 10, 30, 21, 5, 0), Shortcuts = 34, Missing = 22, Own = true });
+                    shown = new BackupForm(sample);
+                }
                 shown.Show();
                 Application.DoEvents();
                 Ui.SaveScreenshot(shown, o.Screenshot);
@@ -128,9 +140,31 @@ namespace ChasePlaneDeckSetup
                 }
                 return ok ? 0 : 1;
             }
+            if (o.RestoreKeys)
+            {
+                if (!o.IgnoreProcesses && !o.DryRun && KeyTool.RunningSimProcesses().Count > 0) { log.Line(Loc.T("Close MSFS / ChasePlane first: ", "Sluit eerst MSFS / ChasePlane: ") + string.Join(", ", KeyTool.RunningSimProcesses().ToArray())); return 1; }
+                foreach (string f in files)
+                {
+                    log.Line(f);
+                    List<BackupInfo> list = KeyTool.ListBackups(f, keys);
+                    BackupInfo pick = KeyTool.BestBackup(list);
+                    if (!string.IsNullOrEmpty(o.Backup))
+                    {
+                        pick = list.Find(delegate(BackupInfo b) { return string.Equals(b.Path, o.Backup, StringComparison.OrdinalIgnoreCase) || string.Equals(Path.GetFileName(b.Path), o.Backup, StringComparison.OrdinalIgnoreCase); });
+                        if (pick == null) { log.Line(Loc.T("  that backup was not found for this file.", "  die back-up is voor dit bestand niet gevonden.")); ok = false; continue; }
+                    }
+                    else if (pick == null || pick.Missing == 0) { log.Line(Loc.T("  nothing to restore: no backup has shortcuts that ChasePlane lacks now.", "  niets terug te zetten: geen enkele back-up heeft sneltoetsen die ChasePlane nu mist.")); continue; }
+                    log.Line(Loc.T("  backup {0}: {1} shortcuts, {2} not in ChasePlane now.", "  back-up {0}: {1} sneltoetsen, {2} nu niet in ChasePlane.", Path.GetFileName(pick.Path), pick.Shortcuts, pick.Missing));
+                    if (o.DryRun) { log.Line(Loc.T("  dry run: nothing written.", "  proefrun: er is niets geschreven.")); continue; }
+                    if (KeyTool.RestoreShortcuts(f, pick.Path, log)) { if (!o.NoKeys) ok &= KeyTool.Apply(f, keys, o.AllKeys, false, log).Ok; }
+                    else ok = false;
+                }
+                return ok ? 0 : 1;
+            }
             if (o.Repair)
             {
                 Diag d = Actions.Diagnose(log, files, keys, o.AllKeys);
+                if (d.KeysUnusable) ok = false;
                 if (o.DryRun) return d.AnyProblem ? 1 : 0;
                 if (d.NeedsPlugin && !o.NoPlugin) { log.Line(Loc.T("Reinstalling the plugin (confirm in the Stream Deck app).", "De plugin wordt opnieuw geïnstalleerd (bevestig in de Stream Deck-app).")); PluginTool.Launch(PluginTool.Extract()); }
                 if (d.NeedsKeys && !o.NoKeys)
