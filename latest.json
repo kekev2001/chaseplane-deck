@@ -1,5 +1,5 @@
 {
-    "version":  "1.1.0.0",
+    "version":  "1.2.0.0",
     "url":  "https://github.com/kekev2001/chaseplane-deck/releases/latest",
-    "notes":  "The deck now presses the shortcuts you set in ChasePlane (the speed keys use the Bridge). Setup asks before it changes anything, keeps extra backups and can restore your own shortcuts."
+    "notes":  "New: drag \u0027ChasePlane command\u0027 onto any key and choose any ChasePlane command from a list; the key presses your own shortcut for it (hold or tap)."
 }

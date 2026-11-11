@@ -7,6 +7,7 @@
 /plugin/*/Profiles/
 /plugin/*/logs/
 /plugin/*/bin/keysend.exe
+/plugin/*/bin/known-commands.json
 /test/probe-output/
 /preview/*_hotkeys.png
 node_modules/

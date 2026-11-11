@@ -901,6 +901,11 @@ foreach ($u in $usedHotkeyXl) {
 [System.IO.File]::WriteAllLines($CsvFile, $csv, (New-Object System.Text.UTF8Encoding $false))
 $usedHybridCount = @($hybridCmds.Keys).Count
 
+# the settings page of the "ChasePlane command" key lists the commands the Bridge reports; this is the list it shows while ChasePlane is not running
+$ti = (Get-Culture).TextInfo
+$known = @($usedHotkeyXl | ForEach-Object { [ordered]@{ id = $_.Command; title = $ti.ToTitleCase(([string]$_.Button).ToLower()); category = 'Commands on the deck' } })
+[System.IO.File]::WriteAllText((Join-Path $PluginDir 'bin\known-commands.json'), (ConvertTo-Json -InputObject $known -Depth 3), (New-Object System.Text.UTF8Encoding $false))
+
 # the plugin manifest must list every bundled profile
 $mf = Get-Content (Join-Path $PluginDir 'manifest.json') -Raw | ConvertFrom-Json
 foreach ($d in $Devices) {

@@ -42,6 +42,10 @@ Een deck-toets waarvan het commando geen sneltoets heeft (of een muisknop), knip
 
 De *Hotkeys-only*-profielen werken anders: hun toetsen sturen vaste sneltoetsen (de `Ctrl+Alt`-toetsen hierboven en de standaardtoetsen van ChasePlane), dus die hebben de exacte sneltoetsen van de toetsenlijst nodig.
 
+## Eigen toetsen maken
+
+Open in de Stream Deck-app de lijst met acties, zoek **ChasePlane** en sleep **ChasePlane command** op een toets (ook in je eigen profielen). Onder de toets kies je het commando uit een lijst van alles wat ChasePlane kan. Die lijst komt van ChasePlane zelf zolang het draait (anders krijg je de ingebouwde lijst) en laat per commando de sneltoets zien die je hebt ingesteld. Kies *Hold* (de sneltoets blijft ingedrukt zolang je de toets vasthoudt: bewegen, kijken, boost) of *Tap* (een korte druk), en laat eventueel de naam van het commando op de toets zien. De toets drukt dan jouw eigen sneltoets; een commando zonder sneltoets knippert en de instellingen zeggen dat.
+
 ## Welk profiel krijg ik
 
 | Deck | Toetsen | Pagina's |

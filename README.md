@@ -44,6 +44,10 @@ A deck key whose command has no shortcut (or whose shortcut is a mouse button) f
 
 The *Hotkeys-only* profiles are different: their keys send fixed shortcuts (the `Ctrl+Alt` ones above and ChasePlane's defaults), so those need the exact shortcuts of the key list.
 
+## Make your own keys
+
+In the Stream Deck app, open the action list, find **ChasePlane** and drag **ChasePlane command** onto any key (also in your own profiles). Under the key you choose the command from a list of everything ChasePlane can do. The list comes from ChasePlane itself while it runs (otherwise you get the built-in list) and shows the shortcut you have set for each command. Pick *Hold* (the shortcut stays pressed while you hold the key: move, look, boost) or *Tap* (a quick press), and optionally show the command's name on the key. The key then presses your own shortcut; a command without a shortcut flashes and the settings say so.
+
 ## Which profile do I get
 
 | Deck | Keys | Pages |

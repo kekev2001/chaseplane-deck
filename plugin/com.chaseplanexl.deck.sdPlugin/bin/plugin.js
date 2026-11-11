@@ -359,8 +359,62 @@ function readSettingsBindings() {          // fallback when the Bridge cannot te
   catch (e) { log('could not read key bindings from', best.f, String(e)); return null; }
 }
 
-const binds = { map: new Map(), source: 'none', at: 0, busy: false, sampleSaved: false };
+const binds = { map: new Map(), source: 'none', at: 0, busy: false, sampleSaved: false, events: [] };
 function bindingFor(cmd) { const list = binds.map.get(cmd); return list && list.length ? list[0] : null; }
+
+// ------------------------------------------------------------------ the ChasePlane commands (for the settings page of the "command" key)
+// Online the Bridge lists every command ChasePlane knows (get_all_assignments -> events: [{ category, events: [{ event_id, title, description,
+// directionals: [{ event_id, title, description }] }] }]); offline the list the build generated from the profiles is used.
+const VK_NAMES = { 8: 'Backspace', 9: 'Tab', 13: 'Enter', 19: 'Pause', 20: 'CapsLock', 27: 'Esc', 32: 'Space', 33: 'PageUp', 34: 'PageDown', 35: 'End', 36: 'Home',
+  37: 'Left', 38: 'Up', 39: 'Right', 40: 'Down', 44: 'PrintScreen', 45: 'Insert', 46: 'Delete', 91: 'Win', 92: 'Win', 106: 'Num*', 107: 'Num+', 109: 'Num-',
+  110: 'Num.', 111: 'Num/', 144: 'NumLock', 145: 'ScrollLock', 160: 'Shift', 161: 'Right Shift', 162: 'Ctrl', 163: 'Right Ctrl', 164: 'Alt', 165: 'Right Alt',
+  186: ';', 187: '=', 188: ',', 189: '-', 190: '.', 191: '/', 192: '`', 219: '[', 220: '\\', 221: ']', 222: "'" };
+function vkName(vk) {
+  if (VK_NAMES[vk]) return VK_NAMES[vk];
+  if (vk >= 48 && vk <= 57) return String(vk - 48);
+  if (vk >= 65 && vk <= 90) return String.fromCharCode(vk);
+  if (vk >= 96 && vk <= 105) return 'Num' + (vk - 96);
+  if (vk >= 112 && vk <= 135) return 'F' + (vk - 111);
+  return 'key ' + vk;
+}
+function comboName(vks) { return vks.map(vkName).join('+'); }
+function flattenEvents(events) {
+  const out = [];
+  for (const c of Array.isArray(events) ? events : []) {
+    const category = c && typeof c.category === 'string' ? c.category : 'Other';
+    for (const e of (c && Array.isArray(c.events)) ? c.events : []) {
+      if (!e || typeof e.event_id !== 'string') continue;
+      const dirs = Array.isArray(e.directionals) ? e.directionals.filter((d) => d && typeof d.event_id === 'string') : [];
+      // an axis such as "Move Laterally" is two commands for a key (left / right): list those, not the axis itself
+      const list = dirs.length ? dirs : [e];
+      for (const d of list) out.push({ id: d.event_id, title: String(d.title || d.event_id), category, description: String(d.description || e.description || '') });
+    }
+  }
+  return out;
+}
+function findEvents(reply) {
+  let h = reply;
+  for (let i = 0; i < 4 && h && typeof h === 'object'; i++, h = h.payload) if (Array.isArray(h.events)) return h.events;
+  return [];
+}
+let knownCommands = null;
+function builtInCommands() {
+  if (knownCommands) return knownCommands;
+  try { knownCommands = JSON.parse(fs.readFileSync(path.join(__dirname, 'known-commands.json'), 'utf8')); } catch (e) { knownCommands = []; }
+  return knownCommands;
+}
+function commandInfo(id) {
+  return binds.events.find((c) => c.id === id) || builtInCommands().find((c) => c.id === id) || null;
+}
+function commandList() {
+  const online = binds.events.length > 0;
+  const src = online ? binds.events : builtInCommands();
+  const commands = src.map((c) => {
+    const vks = bindingFor(c.id);
+    return { id: c.id, title: c.title || c.id, category: c.category || 'Other', description: c.description || '', bridge: Object.prototype.hasOwnProperty.call(SPEED, c.id), key: vks ? comboName(vks) : null };
+  });
+  return { source: online ? 'bridge' : 'built-in', commands };
+}
 async function refreshBindings(force) {
   if (binds.busy) { if (force) binds.again = true; return; }          // a forced refresh that arrives meanwhile runs right after
   if (!force && Date.now() - binds.at < 5000) return;
@@ -375,6 +429,8 @@ async function refreshBindings(force) {
           try { fs.writeFileSync(path.join(path.dirname(LOG_FILE), 'assignments-sample.json'), safeJson(r).slice(0, 400000)); } catch (e) { /* diagnostics only */ }
           log('get_all_assignments reply', r && typeof r === 'object' ? Object.keys(r) : typeof r);
         }
+        const evs = flattenEvents(findEvents(r));
+        if (evs.length) binds.events = evs;
         const m = extractBindings(r);
         if (m.size >= 3) { map = m; source = 'bridge'; } else log('get_all_assignments: no key bindings recognised in the reply');
       } catch (e) { log('get_all_assignments failed', String(e)); }
@@ -387,6 +443,7 @@ async function refreshBindings(force) {
   } finally {
     binds.busy = false; binds.at = Date.now();
     if (binds.again) { binds.again = false; refreshBindings(true); }
+    renderAll();                                          // titles of "command" keys come from the command list
   }
 }
 
@@ -445,7 +502,9 @@ async function commandDown(ctx, k) {
   if (!combo) { await refreshBindings(true); combo = bindingFor(cmd); }      // maybe the user has just assigned it
   if (!combo) { log('no key assigned in ChasePlane for', cmd, '(run ChasePlane Deck Setup to add it, or assign it in ChasePlane)'); alertKey(ctx); return; }
   releaseHeld(ctx);
-  const verb = k.isDown ? 'down' : 'tap';                         // let go while we looked the key up: a quick press instead of a stuck key
+  // "hold": the keys stay down while the Stream Deck key is held (move, look, boost ...); "tap": a quick press. Also a quick press when the
+  // Stream Deck key was let go while we looked the key up (no stuck key)
+  const verb = (k.isDown && (k.settings || {}).mode !== 'tap') ? 'down' : 'tap';
   const reply = await sendKeys(verb, combo);
   if (!/^ok/.test(reply)) {
     if (/not-foreground/.test(reply)) log('key not sent: the flight simulator is not the window in front (' + reply.replace(/^err not-foreground\s*/, '') + ')');
@@ -517,10 +576,16 @@ function render(ctx) {
     let lit = false;
     try { lit = bridge.ready && STATIC[k.id].lit(); } catch (e) { lit = false; }
     once(k, 'state', lit ? 1 : 0, (s) => setState(ctx, s));
-  } else if (k.id === 'cmd' && CMD_LIT[(k.settings || {}).command]) {
-    let lit = false;
-    try { lit = bridge.ready && CMD_LIT[k.settings.command](); } catch (e) { lit = false; }
-    once(k, 'state', lit ? 1 : 0, (s) => setState(ctx, s));
+  } else if (k.id === 'cmd') {
+    const s = k.settings || {};
+    if (CMD_LIT[s.command]) {
+      let lit = false;
+      try { lit = bridge.ready && CMD_LIT[s.command](); } catch (e) { lit = false; }
+      once(k, 'state', lit ? 1 : 0, (st) => setState(ctx, st));
+    }
+    // keys made with the settings page can show the command's name; keys from the profiles carry their own label in the picture
+    if (s.autoTitle && s.command) { const info = commandInfo(s.command); k.titled = true; once(k, 'title', wrapTitle(info ? info.title : s.command, 10, 3), (t) => setTitle(ctx, t)); }
+    else if (k.titled) { k.titled = false; k.sent.title = ''; setTitle(ctx, ''); }        // the option was switched off: take our title away again
   }
 }
 function renderAll() { for (const ctx of keys.keys()) render(ctx); }
@@ -566,7 +631,12 @@ function onSD(text) {
     }
     case 'keyDown': onKeyDown(m.context); break;
     case 'sendToPlugin':
-      if (m.payload && m.payload.request === 'views') {
+      if (m.payload && m.payload.request === 'commands') {          // settings page of the "ChasePlane command" key
+        refreshBindings(false).then(() => {
+          const l = commandList();
+          sdSend({ event: 'sendToPropertyInspector', action: m.action, context: m.context, payload: Object.assign({ online: bridge.ready, source: l.source, commands: l.commands }) });
+        });
+      } else if (m.payload && m.payload.request === 'views') {
         const mode = m.payload.mode === undefined || m.payload.mode === 'auto' ? (cam().mode === null ? 0 : cam().mode) : Number(m.payload.mode);
         sdSend({ event: 'sendToPropertyInspector', action: m.action, context: m.context,
                  payload: { online: bridge.ready, aircraft: model.aircraft, mode, names: viewsForMode(mode).map((v) => v.name) } });
@@ -597,4 +667,4 @@ function main() {
   sd.on('close', () => { log('Stream Deck socket closed, exiting'); releaseAll(); process.exit(0); });
 }
 if (require.main === module) main();
-else module.exports = { parseMappingText, extractBindings, vksOfEntries };       // for the tests
+else module.exports = { parseMappingText, extractBindings, vksOfEntries, flattenEvents, vkName, comboName };       // for the tests

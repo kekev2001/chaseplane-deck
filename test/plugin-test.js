@@ -53,6 +53,17 @@ const MAPPINGS = [
   'CAM_ZOOM_IN&1|Keyboard|160|2|0;1|Keyboard|107|2|0;',                                  // a second binding: the first one is used
   '',
 ].join('\n');
+// the commands ChasePlane lists in get_all_assignments (shape as seen on a running ChasePlane): an axis with directionals, plain commands
+const EVENTS = [
+  { category: 'Camera Movements', events: [
+    { event_id: 'CAM_MOVE_X', title: 'Move Laterally', description: 'Move the camera laterally (Left-Right axis).', can_be_axis: true, can_be_button: true,
+      directionals: [{ event_id: 'CAM_MOVE_L', title: 'Move Left', description: 'Move the camera left.' }, { event_id: 'CAM_MOVE_R', title: 'Move Right', description: 'Move the camera right.' }] }] },
+  { category: 'Camera Actions', events: [
+    { event_id: 'CAM_QUICK_VIEW_UP', title: 'Peek Up', description: 'Look up quickly.', can_be_button: true, directionals: [] },
+    { event_id: 'CAM_BOOST_SET', title: 'Boost', description: 'Move faster while held.', can_be_button: true },
+    { event_id: 'CAM_CONTROL_PROFILE_FAST', title: 'Control Profile: Fast', description: 'Fast camera speed.', can_be_button: true },
+    { event_id: 'CAM_TOGGLE_NVG', title: 'Night Vision', description: 'Toggle night vision.', can_be_button: true }] },
+];
 let bridgeSrv = null, bridgePort = 0;
 const bridgeLog = [];           // every api_request received
 let bridgeClients = [];
@@ -76,7 +87,7 @@ function startBridge(port = 0) {
           bridgeLog.push({ command: m.command, payload: m.payload });
           let status = 200, payload = {};
           if (m.command === 'get_views') payload = { views: bigViews, metadata: { aircraft_readable: 'Boeing 737-800' } };
-          if (m.command === 'get_all_assignments') payload = { message: 'get_assignments', payload: { aircraft: 'Boeing 737-800', devices: [], events: [], views: [], groups: [], mappings: MAPPINGS, keyboard_naming: [], named_assignments: [] } };
+          if (m.command === 'get_all_assignments') payload = { message: 'get_assignments', payload: { aircraft: 'Boeing 737-800', devices: [], events: EVENTS, views: [], groups: [], mappings: MAPPINGS, keyboard_naming: [], named_assignments: [] } };
           if (m.command === 'set_view_by_guid' && m.payload.guid === failGuid) status = 404;
           const body = nestedReplies && m.command === 'get_views' ? { message: 'views', payload } : payload;
           ws.send(JSON.stringify({ message: 'api_reply', request_id: m.request_id, status, payload: body, error: status === 200 ? undefined : 'not found' }));
@@ -92,12 +103,13 @@ const reqs = (cmd) => bridgeLog.filter((e) => e.command === cmd);
 const sdMsgs = [];                // everything the plugin sent after registering
 let sdSock = null, registered = null;
 const CTX = { cockpit: 'ctx-cockpit', external: 'ctx-external', toggle: 'ctx-toggle', cine: 'ctx-cine', tower: 'ctx-tower', drone: 'ctx-drone', v1: 'ctx-v1', v2: 'ctx-v2', v9: 'ctx-v9', vw: 'ctx-vw', status: 'ctx-status', flash: 'ctx-flash',
-  peekU: 'ctx-peekU', boost: 'ctx-boost', roll: 'ctx-roll', nvg: 'ctx-nvg', zoom: 'ctx-zoom', speedF: 'ctx-speedF', speedS: 'ctx-speedS', fake: 'ctx-fake', nocmd: 'ctx-nocmd', rollR: 'ctx-rollR', head: 'ctx-head' };
+  peekU: 'ctx-peekU', boost: 'ctx-boost', roll: 'ctx-roll', nvg: 'ctx-nvg', zoom: 'ctx-zoom', speedF: 'ctx-speedF', speedS: 'ctx-speedS', fake: 'ctx-fake', nocmd: 'ctx-nocmd', rollR: 'ctx-rollR', head: 'ctx-head', peekTap: 'ctx-peekTap', peekName: 'ctx-peekName' };
 const ACTION = { cockpit: 'mode.cockpit', external: 'mode.external', toggle: 'mode.toggle', cine: 'cinematic.toggle', tower: 'near.tower', drone: 'world.drone', v1: 'view', v2: 'view', v9: 'view', vw: 'view', status: 'status', flash: 'flashlight.toggle',
-  peekU: 'cmd', boost: 'cmd', roll: 'cmd', nvg: 'cmd', zoom: 'cmd', speedF: 'cmd', speedS: 'cmd', fake: 'cmd', nocmd: 'cmd', rollR: 'cmd', head: 'cmd' };
+  peekU: 'cmd', boost: 'cmd', roll: 'cmd', nvg: 'cmd', zoom: 'cmd', speedF: 'cmd', speedS: 'cmd', fake: 'cmd', nocmd: 'cmd', rollR: 'cmd', head: 'cmd', peekTap: 'cmd', peekName: 'cmd' };
 const SETTINGS = { v1: { slot: 1, mode: 'auto' }, v2: { slot: 2, mode: 'auto' }, v9: { slot: 9, mode: 0 }, vw: { slot: 2, mode: 2 },
   peekU: { command: 'CAM_QUICK_VIEW_UP' }, boost: { command: 'CAM_BOOST_SET' }, roll: { command: 'CAM_ROLL_L' }, nvg: { command: 'CAM_TOGGLE_NVG' }, zoom: { command: 'CAM_ZOOM_IN' },
-  speedF: { command: 'CAM_CONTROL_PROFILE_FAST' }, speedS: { command: 'CAM_CONTROL_PROFILE_SLOW' }, fake: { command: 'CAM_NOT_A_REAL_COMMAND' }, nocmd: {}, rollR: { command: 'CAM_ROLL_R' }, head: { command: 'CAM_HEAD_TRACKING_TOGGLE' } };
+  speedF: { command: 'CAM_CONTROL_PROFILE_FAST' }, speedS: { command: 'CAM_CONTROL_PROFILE_SLOW' }, fake: { command: 'CAM_NOT_A_REAL_COMMAND' }, nocmd: {}, rollR: { command: 'CAM_ROLL_R' }, head: { command: 'CAM_HEAD_TRACKING_TOGGLE' },
+  peekTap: { command: 'CAM_QUICK_VIEW_UP', mode: 'tap' }, peekName: { command: 'CAM_QUICK_VIEW_UP', autoTitle: true } };
 const sdSrv = new WSServer({ port: 0, host: '127.0.0.1' });
 sdSrv.on('connection', (ws) => {
   sdSock = ws;
@@ -198,6 +210,22 @@ const count = (ctx, ev) => sdMsgs.filter((m) => m.context === ctx && m.event ===
   bridgeClients[0].send(JSON.stringify({ message: 'sim_state', payload: { latitude: 51.9, flashlight_enabled: false } }));
   check('... and goes dark again', await until(() => last(CTX.flash, 'setState').payload.state === 0));
 
+  // the settings page of the "ChasePlane command" key (any command, chosen by the user)
+  const tp0 = ksLines().filter((l) => l === 'tap 162 164 118').length, dn0 = ksLines().filter((l) => l === 'down 162 164 118').length;
+  press('peekTap');
+  check('mode "tap": a quick press instead of holding the keys', await until(() => ksLines().filter((l) => l === 'tap 162 164 118').length === tp0 + 1) && ksLines().filter((l) => l === 'down 162 164 118').length === dn0, ksLines()); release('peekTap');
+  check('"show the command name": the key gets the Bridge\'s title (Peek Up)', await until(() => (last(CTX.peekName, 'setTitle') || {}).payload && last(CTX.peekName, 'setTitle').payload.title === 'Peek Up'), last(CTX.peekName, 'setTitle'));
+  sdSend({ event: 'didReceiveSettings', action: P + 'cmd', context: CTX.peekName, payload: { settings: { command: 'CAM_QUICK_VIEW_UP' } } });
+  check('... and the title is cleared again when that option is switched off', await until(() => last(CTX.peekName, 'setTitle').payload.title === ''), last(CTX.peekName, 'setTitle'));
+  sdSend({ event: 'sendToPlugin', action: P + 'cmd', context: 'pi-cmd', payload: { request: 'commands' } });
+  check('settings page asks for the commands: the Bridge list, with the user\'s own shortcut per command', await until(() => sdMsgs.some((m) => m.event === 'sendToPropertyInspector' && m.context === 'pi-cmd' && m.payload.source === 'bridge')), sdMsgs.filter((m) => m.event === 'sendToPropertyInspector'));
+  const pi = (sdMsgs.find((m) => m.event === 'sendToPropertyInspector' && m.context === 'pi-cmd') || { payload: { commands: [] } }).payload;
+  const byId = (id) => pi.commands.find((c) => c.id === id);
+  check('list: Peek Up shows Ctrl+Alt+F7, Boost shows PageUp, an unbound command shows no key', (byId('CAM_QUICK_VIEW_UP') || {}).key === 'Ctrl+Alt+F7' && (byId('CAM_BOOST_SET') || {}).key === 'PageUp' && byId('CAM_TOGGLE_NVG') && byId('CAM_TOGGLE_NVG').key === null, pi.commands);
+  check('list: an axis is replaced by its directionals (Move Left / Move Right, no "Move Laterally")', byId('CAM_MOVE_L') && byId('CAM_MOVE_R') && !byId('CAM_MOVE_X'), pi.commands.map((c) => c.id));
+  check('list: the speed command is marked as a Bridge command (no key needed)', (byId('CAM_CONTROL_PROFILE_FAST') || {}).bridge === true, byId('CAM_CONTROL_PROFILE_FAST'));
+  check('list: titles, categories and descriptions come from ChasePlane', (byId('CAM_MOVE_L') || {}).title === 'Move Left' && (byId('CAM_MOVE_L') || {}).category === 'Camera Movements' && /left/i.test((byId('CAM_MOVE_L') || {}).description), byId('CAM_MOVE_L'));
+
   // events from the bridge
   bridgeClients[0].send(JSON.stringify({ message: 'cam_mode_set', payload: { mode: 1, preset_guid: 'e2', views_loaded: true } }));
   check('mode change to External: slot 1 now "Chase", slot 2 lit "Wing Left"', await until(() => (last(CTX.v1, 'setTitle') || {}).payload.title === 'Chase' && (last(CTX.v2, 'setTitle') || {}).payload.title === 'Wing Left' && last(CTX.v2, 'setImage').payload.image === b64('view_m1_lit')), [last(CTX.v1, 'setTitle'), last(CTX.v2, 'setImage')]);
@@ -211,7 +239,7 @@ const count = (ctx, ev) => sdMsgs.filter((m) => m.context === ctx && m.event ===
 
   // property inspector request
   sdSend({ event: 'sendToPlugin', action: P + 'view', context: 'pi-ctx', payload: { request: 'views', mode: 'auto' } });
-  check('PI request answered with view names', await until(() => sdMsgs.some((m) => m.event === 'sendToPropertyInspector' && m.payload.online && m.payload.names.length > 0)), sdMsgs.filter((m) => m.event === 'sendToPropertyInspector'));
+  check('PI request answered with view names', await until(() => sdMsgs.some((m) => m.event === 'sendToPropertyInspector' && m.payload.online && m.payload.names && m.payload.names.length > 0)), sdMsgs.filter((m) => m.event === 'sendToPropertyInspector'));
 
   // bridge goes away
   const port = bridgePort;
@@ -248,6 +276,13 @@ const count = (ctx, ev) => sdMsgs.filter((m) => m.context === ctx && m.event ===
   check('without the Bridge the key is taken from the settings file (BOM, one JSON string)', await until(() => fs.existsSync(KS_LOG2) && fs.readFileSync(KS_LOG2, 'utf8').includes('down 162 76')), fs.existsSync(KS_LOG2) ? fs.readFileSync(KS_LOG2, 'utf8') : '(no log)');
   release('rollR');
   check('and released again', await until(() => fs.readFileSync(KS_LOG2, 'utf8').includes('up 162 76')));
+  const knownFile = path.join(path.dirname(PLUGIN), 'known-commands.json');
+  if (fs.existsSync(knownFile)) {
+    sdSend({ event: 'sendToPlugin', action: P + 'cmd', context: 'pi-cmd2', payload: { request: 'commands' } });
+    check('no Bridge: the settings page gets the built-in command list, with the shortcut read from the settings file',
+      await until(() => sdMsgs.some((m) => m.event === 'sendToPropertyInspector' && m.context === 'pi-cmd2' && m.payload.source === 'built-in' && m.payload.online === false && m.payload.commands.some((c) => c.id === 'CAM_ROLL_R' && c.key === 'Ctrl+L') && m.payload.commands.some((c) => c.id === 'CAM_QUICK_VIEW_UP'))),
+      sdMsgs.filter((m) => m.event === 'sendToPropertyInspector').map((m) => ({ source: m.payload.source, n: (m.payload.commands || []).length })));
+  } else console.log('SKIP built-in command list test (build the plugin first)');
   check('the plugin starts its key helper with --parent <its own pid> (so the helper ends with it)', fs.readFileSync(KS_LOG2, 'utf8').includes('args: --parent ' + child2.pid), fs.readFileSync(KS_LOG2, 'utf8'));
   child2.kill();
 
@@ -260,6 +295,8 @@ const count = (ctx, ev) => sdMsgs.filter((m) => m.context === ctx && m.event ===
   check('extractBindings: mappings as an array of lines', unit.extractBindings({ mappings: MAPPINGS.split('\n') }).size === 4);
   check('extractBindings: objects with Keyboard entries',
     asArr(unit.extractBindings({ mappings: [{ event: 'CAM_BINOCULARS', bindings: [{ device: 'Keyboard', code: 162 }, { device: 'Keyboard', code: 79 }] }] })) === JSON.stringify([['CAM_BINOCULARS', [[162, 79]]]]));
+  check('key names: Ctrl+Alt+F7, Shift+K, End, PageUp, Ctrl+Num0, Right Alt+;, unknown code', [unit.comboName([162, 164, 118]), unit.comboName([160, 75]), unit.comboName([35]), unit.comboName([33]), unit.comboName([162, 96]), unit.comboName([165, 186]), unit.comboName([250])].join(' | ') === 'Ctrl+Alt+F7 | Shift+K | End | PageUp | Ctrl+Num0 | Right Alt+; | key 250');
+  check('flattenEvents: tolerant of junk (no crash, empty result)', unit.flattenEvents(null).length === 0 && unit.flattenEvents([{ category: 'x', events: [null, { foo: 1 }, { event_id: 'CAM_A', title: 'A' }] }]).map((c) => c.id).join() === 'CAM_A');
   check('extractBindings: unrecognised reply gives an empty result, no crash', unit.extractBindings({ foo: 1, bar: ['x'] }).size === 0 && unit.extractBindings(null).size === 0 && unit.extractBindings('text').size === 0);
 
   // ---- the real key helper, in --dry mode only: it must parse the protocol and send nothing

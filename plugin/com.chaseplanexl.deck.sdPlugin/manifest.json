@@ -6,7 +6,7 @@
   "Category": "ChasePlane",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/icon",
-  "Version": "1.1.0.0",
+  "Version": "1.2.0.0",
   "CodePath": "bin/plugin.js",
   "Nodejs": {
     "Version": "20"
@@ -415,8 +415,8 @@
       "UUID": "com.chaseplanexl.deck.cmd",
       "Name": "ChasePlane command",
       "Icon": "imgs/actions/cmd",
-      "Tooltip": "Runs a ChasePlane command (peek, roll, night vision, ...) with the keyboard shortcut you have set for it in ChasePlane. Used by the ChasePlane profiles.",
-      "VisibleInActionsList": false,
+      "Tooltip": "Runs any ChasePlane command (peek, roll, night vision, zoom, ...) with the keyboard shortcut you have set for it in ChasePlane. Choose the command in the settings below the key. The ChasePlane profiles use this action for most of their keys.",
+      "PropertyInspectorPath": "ui/cmd.html",
       "Controllers": [
         "Keypad"
       ],
@@ -425,11 +425,15 @@
       "States": [
         {
           "Image": "imgs/actions/cmd",
-          "ShowTitle": false
+          "TitleAlignment": "bottom",
+          "FontSize": "11",
+          "TitleColor": "#FFFFFF"
         },
         {
           "Image": "imgs/actions/cmd_lit",
-          "ShowTitle": false
+          "TitleAlignment": "bottom",
+          "FontSize": "11",
+          "TitleColor": "#FFFFFF"
         }
       ]
     }

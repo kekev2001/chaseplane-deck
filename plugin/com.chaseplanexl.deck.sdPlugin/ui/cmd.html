@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChasePlane command</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; font-size: 13px; color: #ddd; background: #2d2d2d; margin: 10px; }
+    label { display: block; margin: 10px 0 3px; color: #9c9c9c; }
+    select, input[type=text] { width: 100%; box-sizing: border-box; padding: 5px; background: #3d3d3d; color: #eee; border: 1px solid #555; border-radius: 4px; }
+    select.list { height: 190px; padding: 2px; }
+    select.list option { padding: 3px 5px; }
+    .check { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; color: #ddd; }
+    .check input { margin: 0; }
+    .info { margin-top: 10px; padding: 8px; background: #383838; border-radius: 4px; line-height: 1.45; }
+    .info .desc { color: #aaa; margin-top: 4px; }
+    .ok { color: #7ddc8a; }
+    .warn { color: #f0b45a; }
+    .hint { color: #888; font-size: 11px; margin-top: 8px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <label for="filter">Find a command</label>
+  <input type="text" id="filter" placeholder="type to filter, e.g. peek, zoom, night" autocomplete="off">
+
+  <label for="list">ChasePlane command</label>
+  <select id="list" class="list" size="10"></select>
+
+  <div class="info" id="info">...</div>
+
+  <label for="how">How the key works</label>
+  <select id="how">
+    <option value="hold">Hold (while the key is held)</option>
+    <option value="tap">Tap (quick press)</option>
+  </select>
+
+  <label class="check"><input type="checkbox" id="title"> Show the command name on the key</label>
+
+  <div class="hint" id="hint">The key presses the keyboard shortcut you have set for this command in ChasePlane (Preferences &gt; Control Assignments), only while the flight simulator window is in front. Hold keeps the shortcut pressed while you hold the key (move, look, boost); Tap is a quick press. The speed commands use ChasePlane's Bridge and need no shortcut.</div>
+
+<script>
+  let ws = null, uuid = null, action = null, settings = {}, commands = [], source = 'built-in', online = false;
+  const listEl = document.getElementById('list'), filterEl = document.getElementById('filter'), infoEl = document.getElementById('info');
+  const howEl = document.getElementById('how'), titleEl = document.getElementById('title');
+
+  function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+    uuid = inUUID;
+    try { const ai = JSON.parse(inActionInfo); action = ai.action; settings = (ai.payload && ai.payload.settings) || {}; } catch (e) { settings = {}; }
+    howEl.value = settings.mode === 'tap' ? 'tap' : 'hold';
+    titleEl.checked = settings.autoTitle !== undefined ? !!settings.autoTitle : !settings.command;     // a new key shows the name; keys from the profiles carry their own label
+    ws = new WebSocket('ws://127.0.0.1:' + inPort);
+    ws.onopen = function () { ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID })); ask(); };
+    ws.onmessage = function (e) {
+      let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (m.event === 'sendToPropertyInspector' && m.payload && Array.isArray(m.payload.commands)) { commands = m.payload.commands; source = m.payload.source; online = !!m.payload.online; fill(); }
+      else if (m.event === 'didReceiveSettings') { settings = (m.payload && m.payload.settings) || settings; }
+    };
+  }
+  function ask() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'sendToPlugin', action: action, context: uuid, payload: { request: 'commands' } }));
+  }
+  function fill() {
+    const q = filterEl.value.trim().toLowerCase();
+    const groups = {};
+    commands.forEach(function (c) {
+      if (q && (c.title + ' ' + c.id + ' ' + c.category).toLowerCase().indexOf(q) < 0 && c.id !== settings.command) return;
+      (groups[c.category] = groups[c.category] || []).push(c);
+    });
+    listEl.innerHTML = '';
+    Object.keys(groups).sort().forEach(function (cat) {
+      const og = document.createElement('optgroup'); og.label = cat;
+      groups[cat].sort(function (a, b) { return a.title.localeCompare(b.title); }).forEach(function (c) {
+        const o = document.createElement('option'); o.value = c.id; o.textContent = c.title; o.selected = c.id === settings.command; og.appendChild(o);
+      });
+      listEl.appendChild(og);
+    });
+    if (settings.command && !commands.some(function (c) { return c.id === settings.command; })) {      // a command this ChasePlane does not list (an old or custom one)
+      const o = document.createElement('option'); o.value = settings.command; o.textContent = settings.command; o.selected = true; listEl.insertBefore(o, listEl.firstChild);
+    }
+    show();
+  }
+  function show() {
+    const c = commands.find(function (x) { return x.id === settings.command; });
+    if (!settings.command) { infoEl.textContent = 'Choose a command above.'; return; }
+    infoEl.innerHTML = '<b></b>';
+    infoEl.firstChild.textContent = c ? c.title + '  (' + c.id + ')' : settings.command;
+    const line = document.createElement('div');
+    if (c && c.bridge) { line.className = 'ok'; line.textContent = "Uses ChasePlane's Bridge: no shortcut needed."; }
+    else if (c && c.key) { line.className = 'ok'; line.textContent = 'Your shortcut in ChasePlane: ' + c.key; }
+    else { line.className = 'warn'; line.textContent = online || source === 'bridge' ? 'No keyboard shortcut is set for this command in ChasePlane. Assign one in Preferences > Control Assignments, or let ChasePlane Deck Setup add one.' : 'ChasePlane is not running, so your shortcut is not known yet. The key still works once ChasePlane has a shortcut for it.'; }
+    infoEl.appendChild(line);
+    if (c && c.description) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = c.description; infoEl.appendChild(d); }
+    if (!online) { const n = document.createElement('div'); n.className = 'desc'; n.textContent = 'ChasePlane Bridge is offline: this is the built-in list of commands (start MSFS + ChasePlane for the full list).'; infoEl.appendChild(n); }
+  }
+  function save() {
+    settings.mode = howEl.value;
+    settings.autoTitle = titleEl.checked;
+    if (listEl.value) settings.command = listEl.value;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
+    show();
+  }
+  listEl.addEventListener('change', save);
+  howEl.addEventListener('change', save);
+  titleEl.addEventListener('change', save);
+  filterEl.addEventListener('input', fill);
+</script>
+</body>
+</html>
