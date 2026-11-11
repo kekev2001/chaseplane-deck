@@ -5,6 +5,7 @@ Een gratis, onofficiële Stream Deck-plugin met een kant-en-klaar profiel voor *
 - Cockpit-, External- en World-camera, **de views van je geladen vliegtuig op de toetsen (live namen, de actieve view licht op)**, cinematic, zaklamp, dichtstbijzijnde tower / runway / parking / spotting, drone, flyby, traffic.
 - Fly cam, rondkijken, rollen, zoom, peek, night vision, binoculars, depth of field, exposure, head tracking.
 - Pagina's (tabs) in plaats van één volle deck. Kleine decks (Mini, Neo, +) krijgen een "volgende pagina"-toets.
+- **Draaiknoppen** op de Stream Deck +, + XL en Studio: zoomen, links / rechts kijken, omhoog / omlaag kijken, volgende / vorige view, rollen en night vision, met op het touch-scherm wat je net deed.
 
 
 ## Downloaden
@@ -46,6 +47,23 @@ De *Hotkeys-only*-profielen werken anders: hun toetsen sturen vaste sneltoetsen 
 
 Open in de Stream Deck-app de lijst met acties, zoek **ChasePlane** en sleep **ChasePlane command** op een toets (ook in je eigen profielen). Onder de toets kies je het commando uit een lijst van alles wat ChasePlane kan. Die lijst komt van ChasePlane zelf zolang het draait (anders krijg je de ingebouwde lijst) en laat per commando de sneltoets zien die je hebt ingesteld. Kies *Hold* (de sneltoets blijft ingedrukt zolang je de toets vasthoudt: bewegen, kijken, boost) of *Tap* (een korte druk), en laat eventueel de naam van het commando op de toets zien. De toets drukt dan jouw eigen sneltoets; een commando zonder sneltoets knippert en de instellingen zeggen dat.
 
+## De draaiknoppen (Stream Deck +, + XL, Studio)
+
+De ChasePlane-profielen van deze decks hebben de draaiknoppen al ingesteld, op elke pagina:
+
+| Knop | Rechts / links draaien | Indrukken |
+|---|---|---|
+| ZOOM | in- / uitzoomen | zoom resetten |
+| LOOK | naar rechts / links kijken | horizon resetten |
+| LOOK UP/DOWN | omhoog / omlaag kijken | horizon resetten |
+| VIEW | volgende / vorige view | binnen / buiten |
+| ROLL (+ XL) | rechts / links rollen | horizon resetten |
+| NIGHT VISION (+ XL) | meer / minder intensiteit | night vision aan / uit |
+
+De Stream Deck + heeft de eerste vier, de + XL alle zes en de Studio ZOOM en VIEW. Een knop draaien drukt de sneltoets die jij in ChasePlane voor dat commando hebt ingesteld (dezelfde als bij de toetsen, en alleen als het venster van de flight simulator vooraan staat); het touch-scherm toont de naam van de knop en, even, wat hij net deed. Op het touch-scherm tikken doet hetzelfde als de knop indrukken.
+
+Een knop aanpassen, of er een zetten in een eigen profiel: sleep **ChasePlane dial** (groep ChasePlane) in de Stream Deck-app op een draaiknop en kies het commando voor *rechts draaien*, *links draaien*, *indrukken* en *tikken op het touch-scherm* (eventueel een ander commando voor draaien terwijl je indrukt), plus een naam voor het touch-scherm. *Hoe lang de sneltoets per draai ingedrukt blijft* bepaalt het gevoel: *Short* is één korte druk per klik (stappen, views), *Medium* en *Long* houden de sneltoets ingedrukt zolang je blijft draaien, zodat de camera vloeiend beweegt. De *Hotkeys-only*-profielen gebruiken de draaiknoppen niet.
+
 ## Welk profiel krijg ik
 
 | Deck | Toetsen | Pagina's |
@@ -57,7 +75,7 @@ Open in de Stream Deck-app de lijst met acties, zoek **ChasePlane** en sleep **C
 | Stream Deck + XL | 36 | zoals XL plus een extra kolom |
 | Stream Deck Studio | 32 | zoals XL, op twee lange rijen |
 
-Draaiknoppen en touch-strips worden niet gebruikt. De knop *Hotkeys-only profiel...* in Setup importeert hetzelfde profiel zonder plugin (elke toets stuurt een sneltoets; geen live view-namen). Die profielen zitten in de exe; je hebt geen losse bestanden nodig.
+De knop *Hotkeys-only profiel...* in Setup importeert hetzelfde profiel zonder plugin (elke toets stuurt een sneltoets; geen live view-namen). Die profielen zitten in de exe; je hebt geen losse bestanden nodig.
 
 ## Problemen
 
@@ -69,7 +87,7 @@ Draaiknoppen en touch-strips worden niet gebruikt. De knop *Hotkeys-only profiel
 
 ## Let op
 
-- De plugin is getest tegen een nagemaakte ChasePlane Bridge en een nagemaakte Stream Deck, en de profielbestanden zijn structureel gecontroleerd. Het uitlezen van de toetsenlijst, de snelheidstoetsen en het drukken van een toets (de in/uit-camerawissel, met de eigen sneltoets van de gebruiker) zijn daarnaast gecontroleerd tegen een draaiende ChasePlane. Meldingen van echte decks (vooral Mini, Neo, +, + XL en Studio) zijn zeer welkom.
+- De plugin is getest tegen een nagemaakte ChasePlane Bridge en een nagemaakte Stream Deck, en de profielbestanden zijn structureel gecontroleerd. Het uitlezen van de toetsenlijst, de snelheidstoetsen en het drukken van een toets (de in/uit-camerawissel, met de eigen sneltoets van de gebruiker) zijn daarnaast gecontroleerd tegen een draaiende ChasePlane. Meldingen van echte decks (vooral Mini, Neo, +, + XL en Studio) zijn zeer welkom. De draaiknoppen zijn gebouwd op basis van Elgato's documentatie en gecontroleerd met een nagemaakte Stream Deck; ze zijn nog niet op een echte Stream Deck + geprobeerd, dus laat graag weten hoe ze voelen (en of de tekst op het touch-scherm er goed uitziet).
 - De plugin gebruikt ChasePlane's lokale Bridge (`ws://127.0.0.1:8652`). Die interface is niet officieel gedocumenteerd, dus een ChasePlane-update kan hem veranderen. De `hotkeys-only`-profielen zijn de terugvaloptie.
 - Onafhankelijk project. Niet verbonden aan, goedgekeurd door of ondersteund door Parallel 42, Elgato of Microsoft. ChasePlane, Stream Deck en Microsoft Flight Simulator zijn merken van hun eigenaren.
 - Setup installeert niets buiten de Stream Deck-pluginmap (via de Stream Deck-app; in die map staat ook het kleine toetsenprogramma `keysend.exe`), een tijdelijk bestand in `%TEMP%\ChasePlaneDeckSetup`, kopieën van ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, en de back-up en wijziging van ChasePlane's `user_settings.json` die je goedkeurt door op Installeren te klikken. Zonder ingebouwd updateadres gebruikt Setup het netwerk niet.

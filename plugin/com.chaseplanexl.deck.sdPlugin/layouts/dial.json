@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/layout.json",
+  "id": "com.chaseplanexl.deck.dial",
+  "controller": "Encoder",
+  "items": [
+    {
+      "key": "name",
+      "type": "text",
+      "rect": [0, 8, 200, 24],
+      "alignment": "center",
+      "color": "#6cb4ff",
+      "font": { "size": 18, "weight": 700 },
+      "text-overflow": "ellipsis",
+      "value": "ChasePlane"
+    },
+    {
+      "key": "value",
+      "type": "text",
+      "rect": [0, 36, 200, 32],
+      "alignment": "center",
+      "color": "#ffffff",
+      "font": { "size": 24, "weight": 700 },
+      "text-overflow": "ellipsis",
+      "value": ""
+    },
+    {
+      "key": "hint",
+      "type": "text",
+      "rect": [0, 72, 200, 22],
+      "alignment": "center",
+      "color": "#8ea0b8",
+      "font": { "size": 13, "weight": 500 },
+      "text-overflow": "ellipsis",
+      "value": ""
+    }
+  ]
+}

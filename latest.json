@@ -1,5 +1,5 @@
 {
-    "version":  "1.2.0.0",
+    "version":  "1.3.0.0",
     "url":  "https://github.com/kekev2001/chaseplane-deck/releases/latest",
-    "notes":  "New: drag \u0027ChasePlane command\u0027 onto any key and choose any ChasePlane command from a list; the key presses your own shortcut for it (hold or tap)."
+    "notes":  "New: dials for the Stream Deck +, + XL and Studio (zoom, look around, change view, roll, night vision) with the touch strip showing what they do. Drag \u0027ChasePlane dial\u0027 onto a dial to choose your own commands."
 }

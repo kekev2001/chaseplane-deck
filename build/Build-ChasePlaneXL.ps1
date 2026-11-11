@@ -561,7 +561,6 @@ function Build-Profile($PageList, [string]$OutFile, [string]$Name, [string]$Prev
     $pageIds = @(); foreach ($p in $PageList) { $pageIds += (New-Uuid) }
     $defaultPage = New-Uuid
     $top = if ($v3) { "Profiles/$profileUuid.sdProfile" } else { "$profileUuid.sdProfile" }
-    $extra = @(); foreach ($t in $Dev.extra) { $extra += [ordered]@{ Actions = [ordered]@{}; Type = $t } }
     if (Test-Path $OutFile) { Remove-Item $OutFile -Force }
     New-Item -ItemType Directory -Force -Path (Split-Path $OutFile -Parent) | Out-Null
     $fs = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::CreateNew)
@@ -641,10 +640,32 @@ function Build-Profile($PageList, [string]$OutFile, [string]$Name, [string]$Prev
             }
             $actions[$pos] = $act
         }
+        # the other controllers of the model: the dials of the Stream Deck + / + XL / Studio carry "ChasePlane dial" actions in the plugin profiles
+        $extra = @()
+        foreach ($t in $Dev.extra) {
+            $ctl = [ordered]@{ Actions = [ordered]@{}; Type = $t }
+            if ($IsBridge -and $t -eq 'Encoder' -and $Dev.dials) {
+                for ($di = 0; $di -lt @($Dev.dials).Count; $di++) {
+                    $dd0 = $DialAll[[int]@($Dev.dials)[$di]]
+                    $ctl.Actions["$di,0"] = [ordered]@{ ActionID = (New-Uuid); LinkedTitle = $true; Name = 'ChasePlane dial'; Plugin = $plugin; Resources = $null
+                                                        Settings = [ordered]@{ name = $dd0.name; right = $dd0.right; left = $dd0.left; push = $dd0.push; pulse = $dd0.pulse; pushMode = 'tap' }
+                                                        State = 0; States = @([ordered]@{}); UUID = "$PluginId.dial" }
+                }
+            }
+            $extra += $ctl
+        }
         $pageManifest = [ordered]@{ Controllers = (@([ordered]@{ Actions = $actions; Type = 'Keypad' }) + $extra); Icon = ''; Name = '' }
         Add-ZipBytes $zip "$dir/manifest.json" ($Utf8.GetBytes((To-Json $pageManifest)))
         if ($PreviewPrefix -and $Preview) {
             $script:PreviewData["$PreviewPrefix$($pi + 1)"] = @{ faces = $faces; titles = $titles; cols = $Dev.cols; rows = $Dev.rows; page = $page.name; dev = $Dev.key }
+        }
+    }
+    if ($IsBridge -and $Dev.dials) {                       # the commands on the dials need their shortcuts in ChasePlane too
+        foreach ($di in @($Dev.dials)) {
+            $dd0 = $DialAll[[int]$di]
+            foreach ($c in @($dd0.right, $dd0.left, $dd0.push)) {
+                if (-not $seen.ContainsKey($c)) { $seen[$c] = $true; $used.Add([pscustomobject]@{ Command = $c; Keys = (Get-Combo $c); Page = 0; Button = $dd0.name }) }
+            }
         }
     }
     $dd = if ($v3) { "$top/Profiles/$($defaultPage.ToUpper())" } else { "$top/Profiles/$(Encode-Id $defaultPage)" }
@@ -722,6 +743,17 @@ $Items = @{
     expmore     = @{ hk = (HK 'CAM_EXPOSURE_MORE' "EXPOSURE`nMORE" 'sunplus' 'fx') }
     head        = @{ hk = (HK 'CAM_HEAD_TRACKING_TOGGLE' "HEAD`nTRACKING" 'head' 'fx') }
 }
+# the dials of the Stream Deck +, + XL and Studio (plugin profiles only): name on the touch strip, command per turn right / left, command for a push;
+# pulse = how long the shortcut stays down per turn (short = one quick press per click)
+function DialDef([string]$name, [string]$right, [string]$left, [string]$push, [string]$pulse) { [ordered]@{ name = $name; right = $right; left = $left; push = $push; pulse = $pulse } }
+$DialAll = @(
+    (DialDef 'ZOOM'         'CAM_ZOOM_IN'            'CAM_ZOOM_OUT'          'CAM_RESET_ZOOM'   'medium')
+    (DialDef 'LOOK'         'CAM_ROT_R'              'CAM_ROT_L'             'CAM_RESET_ORIENT' 'medium')
+    (DialDef 'LOOK UP/DOWN' 'CAM_ROT_U'              'CAM_ROT_D'             'CAM_RESET_ORIENT' 'medium')
+    (DialDef 'VIEW'         'CAM_NEXT_VIEW'          'CAM_PREV_VIEW'         'CAM_TOGGLE_IN_OUT' 'short')
+    (DialDef 'ROLL'         'CAM_ROLL_R'             'CAM_ROLL_L'            'CAM_RESET_ORIENT' 'medium')
+    (DialDef 'NIGHT VISION' 'CAM_NVG_INTENSITY_MORE' 'CAM_NVG_INTENSITY_LESS' 'CAM_TOGGLE_NVG' 'short')
+)
 # keys that only exist with the plugin (view slots, status) are replaced by these hotkeys in the hotkeys-only profiles
 $SlotSubs = @('smart', 'smarthold', 'prevgroup', 'nextgroup', 'bino', 'flashlight', 'overview', 'binohold')
 # pages of the small decks: name -> face of the "go to this page" key
@@ -844,10 +876,10 @@ $Devices = @(
          @{ p = 'fx';     rows = @('nvg bino dof', 'expless expmore >>') }
        ) }
     @{ key = 'xl'; file = 'XL'; name = 'ChasePlane XL'; desc = 'Stream Deck XL (32 keys, 8x4)'; type = 2; model = '20GAT9901'; cols = 8; rows = 4; kind = 'xl'; extra = @(); hkFormat = 'v2' }
-    @{ key = 'plus'; file = 'Plus'; name = 'ChasePlane Plus'; desc = 'Stream Deck + (8 keys, 4x2)'; type = 7; model = '20GBD9901'; cols = 4; rows = 2; kind = 'grid'; extra = @('Encoder'); hkFormat = 'v2'; pages = $null }
+    @{ key = 'plus'; file = 'Plus'; name = 'ChasePlane Plus'; desc = 'Stream Deck + (8 keys, 4x2)'; type = 7; model = '20GBD9901'; cols = 4; rows = 2; kind = 'grid'; extra = @('Encoder'); dials = @(0, 1, 2, 3); hkFormat = 'v2'; pages = $null }
     @{ key = 'neo'; file = 'Neo'; name = 'ChasePlane Neo'; desc = 'Stream Deck Neo (8 keys, 4x2)'; type = 9; model = '20GBJ9901'; cols = 4; rows = 2; kind = 'grid'; extra = @('Neo'); hkFormat = 'v2'; pages = $null }
-    @{ key = 'plusxl'; file = 'PlusXL'; name = 'ChasePlane Plus XL'; desc = 'Stream Deck + XL (36 keys, 9x4)'; type = 13; model = '20GBX9901'; cols = 9; rows = 4; kind = 'plusxl'; extra = @('Encoder'); hkFormat = 'v3' }
-    @{ key = 'studio'; file = 'Studio'; name = 'ChasePlane Studio'; desc = 'Stream Deck Studio (32 keys, 16x2)'; type = 10; model = '20GBL9901'; cols = 16; rows = 2; kind = 'studio'; extra = @('Encoder'); hkFormat = 'v3' }
+    @{ key = 'plusxl'; file = 'PlusXL'; name = 'ChasePlane Plus XL'; desc = 'Stream Deck + XL (36 keys, 9x4)'; type = 13; model = '20GBX9901'; cols = 9; rows = 4; kind = 'plusxl'; extra = @('Encoder'); dials = @(0, 1, 2, 3, 4, 5); hkFormat = 'v3' }
+    @{ key = 'studio'; file = 'Studio'; name = 'ChasePlane Studio'; desc = 'Stream Deck Studio (32 keys, 16x2)'; type = 10; model = '20GBL9901'; cols = 16; rows = 2; kind = 'studio'; extra = @('Encoder'); dials = @(0, 3); hkFormat = 'v3' }
 )
 # Neo and Plus share the 4x2 layout
 $Pages4x2 = @(
@@ -903,7 +935,7 @@ $usedHybridCount = @($hybridCmds.Keys).Count
 
 # the settings page of the "ChasePlane command" key lists the commands the Bridge reports; this is the list it shows while ChasePlane is not running
 $ti = (Get-Culture).TextInfo
-$known = @($usedHotkeyXl | ForEach-Object { [ordered]@{ id = $_.Command; title = $ti.ToTitleCase(([string]$_.Button).ToLower()); category = 'Commands on the deck' } })
+$known = @($usedHotkeyXl | ForEach-Object { [ordered]@{ id = $_.Command; title = ($ti.ToTitleCase(([string]$_.Button).ToLower()) -creplace '\bNvg\b', 'NVG'); category = 'Commands on the deck' } })
 [System.IO.File]::WriteAllText((Join-Path $PluginDir 'bin\known-commands.json'), (ConvertTo-Json -InputObject $known -Depth 3), (New-Object System.Text.UTF8Encoding $false))
 
 # the plugin manifest must list every bundled profile
@@ -925,6 +957,7 @@ foreach ($id in $BridgeActions.Keys) {
     Save-Face (Join-Path $actDir $id) (Get-KeyPng $a.icon $a.label $a.cat $false)
     Save-Face (Join-Path $actDir "${id}_lit") (Get-KeyPng $a.icon $a.label $a.cat $true)
 }
+Save-Face (Join-Path $actDir 'dial') (Get-KeyPng 'rotcw' '' 'speed' $false)
 Save-Face (Join-Path $actDir 'cmd') (Get-KeyPng 'bolt' '' 'speed' $false)
 Save-Face (Join-Path $actDir 'cmd_lit') (Get-KeyPng 'bolt' '' 'speed' $true)
 Save-Face (Join-Path $actDir 'view') (Get-TilePng 'view_m0')

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChasePlane dial</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; font-size: 13px; color: #ddd; background: #2d2d2d; margin: 10px; }
+    label { display: block; margin: 10px 0 3px; color: #9c9c9c; }
+    select, input[type=text] { width: 100%; box-sizing: border-box; padding: 5px; background: #3d3d3d; color: #eee; border: 1px solid #555; border-radius: 4px; }
+    .row { margin: 0; }
+    .key { font-size: 11px; margin-top: 3px; min-height: 14px; }
+    .ok { color: #7ddc8a; }
+    .warn { color: #f0b45a; }
+    .hint { color: #888; font-size: 11px; margin-top: 12px; line-height: 1.4; }
+    .note { margin-top: 10px; padding: 8px; background: #383838; border-radius: 4px; color: #aaa; display: none; }
+  </style>
+</head>
+<body>
+  <label for="name">Name on the touch strip</label>
+  <input type="text" id="name" maxlength="20" placeholder="e.g. ZOOM (empty = the name of the right-turn command)" autocomplete="off">
+
+  <div class="row"><label for="right">Turn right (clockwise)</label><select id="right"></select><div class="key" id="k_right"></div></div>
+  <div class="row"><label for="left">Turn left (counter-clockwise)</label><select id="left"></select><div class="key" id="k_left"></div></div>
+  <div class="row"><label for="push">Push the dial</label><select id="push"></select><div class="key" id="k_push"></div></div>
+  <div class="row"><label for="touch">Tap the touch strip</label><select id="touch"></select><div class="key" id="k_touch"></div></div>
+
+  <label for="pulse">How long the shortcut stays down per turn</label>
+  <select id="pulse">
+    <option value="short">Short (a quick press per click: steps, views, zoom steps)</option>
+    <option value="medium">Medium (smooth movement)</option>
+    <option value="long">Long (big moves)</option>
+  </select>
+
+  <label for="pushMode">Pushing the dial</label>
+  <select id="pushMode">
+    <option value="tap">Quick press</option>
+    <option value="hold">Keep pressed while the dial is held in</option>
+  </select>
+
+  <div class="note" id="note"></div>
+  <div class="hint">Each command presses the keyboard shortcut you have set for it in ChasePlane (Preferences &gt; Control Assignments), only while the flight simulator window is in front. The speed commands use ChasePlane's Bridge. Tapping the touch strip does the same as pushing the dial unless you choose another command.</div>
+
+<script>
+  let ws = null, uuid = null, action = null, settings = {}, commands = [], source = 'built-in', online = false;
+  const FIELDS = ['right', 'left', 'push', 'touch'];
+  const els = {}; FIELDS.forEach(function (f) { els[f] = document.getElementById(f); });
+  const nameEl = document.getElementById('name'), pulseEl = document.getElementById('pulse'), pushModeEl = document.getElementById('pushMode'), noteEl = document.getElementById('note');
+
+  function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+    uuid = inUUID;
+    try { const ai = JSON.parse(inActionInfo); action = ai.action; settings = (ai.payload && ai.payload.settings) || {}; } catch (e) { settings = {}; }
+    nameEl.value = settings.name || '';
+    pulseEl.value = settings.pulse || 'medium';
+    pushModeEl.value = settings.pushMode === 'hold' ? 'hold' : 'tap';
+    ws = new WebSocket('ws://127.0.0.1:' + inPort);
+    ws.onopen = function () { ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID })); ask(); };
+    ws.onmessage = function (e) {
+      let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (m.event === 'sendToPropertyInspector' && m.payload && Array.isArray(m.payload.commands)) { commands = m.payload.commands; source = m.payload.source; online = !!m.payload.online; fill(); }
+      else if (m.event === 'didReceiveSettings') { settings = (m.payload && m.payload.settings) || settings; }
+    };
+  }
+  function ask() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'sendToPlugin', action: action, context: uuid, payload: { request: 'commands' } }));
+  }
+  function fill() {
+    const groups = {};
+    commands.forEach(function (c) { (groups[c.category] = groups[c.category] || []).push(c); });
+    FIELDS.forEach(function (f) {
+      const sel = els[f]; sel.innerHTML = '';
+      const none = document.createElement('option'); none.value = ''; none.textContent = f === 'touch' ? '(same as pushing the dial)' : '(nothing)'; sel.appendChild(none);
+      Object.keys(groups).sort().forEach(function (cat) {
+        const og = document.createElement('optgroup'); og.label = cat;
+        groups[cat].sort(function (a, b) { return a.title.localeCompare(b.title); }).forEach(function (c) {
+          const o = document.createElement('option'); o.value = c.id; o.textContent = c.title; og.appendChild(o);
+        });
+        sel.appendChild(og);
+      });
+      const cur = settings[f];
+      if (cur && !commands.some(function (c) { return c.id === cur; })) {      // a command this ChasePlane does not list (an old or custom one)
+        const o = document.createElement('option'); o.value = cur; o.textContent = cur; sel.appendChild(o);
+      }
+      sel.value = cur || '';
+    });
+    show();
+  }
+  function show() {
+    FIELDS.forEach(function (f) {
+      const out = document.getElementById('k_' + f); const id = settings[f];
+      out.className = 'key'; out.textContent = '';
+      if (!id) return;
+      const c = commands.find(function (x) { return x.id === id; });
+      if (c && c.bridge) { out.className = 'key ok'; out.textContent = "Uses ChasePlane's Bridge: no shortcut needed."; }
+      else if (c && c.key) { out.className = 'key ok'; out.textContent = 'Your shortcut in ChasePlane: ' + c.key; }
+      else { out.className = 'key warn'; out.textContent = online || source === 'bridge' ? 'No shortcut is set for this command in ChasePlane yet (Preferences > Control Assignments, or run ChasePlane Deck Setup).' : 'ChasePlane is not running, so your shortcut is not known yet.'; }
+    });
+    noteEl.style.display = online ? 'none' : 'block';
+    noteEl.textContent = online ? '' : 'ChasePlane Bridge is offline: this is the built-in list of commands (start MSFS + ChasePlane for the full list).';
+  }
+  function save() {
+    FIELDS.forEach(function (f) { settings[f] = els[f].value; });
+    settings.name = nameEl.value.trim();
+    settings.pulse = pulseEl.value;
+    settings.pushMode = pushModeEl.value;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
+    show();
+  }
+  FIELDS.forEach(function (f) { els[f].addEventListener('change', save); });
+  pulseEl.addEventListener('change', save);
+  pushModeEl.addEventListener('change', save);
+  nameEl.addEventListener('input', save);
+</script>
+</body>
+</html>

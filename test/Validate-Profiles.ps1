@@ -21,6 +21,40 @@ function Read-Entry($zip, [string]$name) {
 $mf = Get-Content (Join-Path $PluginDir 'manifest.json') -Raw | ConvertFrom-Json
 $pluginActions = @($mf.Actions | ForEach-Object { $_.UUID })
 $pluginId = 'com.chaseplanexl.deck'
+$DialCount = @{ '20GBD9901' = 4; '20GBX9901' = 6; '20GBL9901' = 2 }       # Stream Deck +, + XL, Studio
+$knownIds = @((Get-Content (Join-Path $PluginDir 'bin\known-commands.json') -Raw | ConvertFrom-Json) | ForEach-Object { $_.id })
+Check ($knownIds.Count -ge 50) "known-commands.json lists only $($knownIds.Count) commands"
+
+# the plugin manifest itself: every file an action points to exists; the dial action has a valid touch strip layout
+foreach ($a in $mf.Actions) {
+    Check (Test-Path (Join-Path $PluginDir "$($a.Icon).png")) "manifest: icon $($a.Icon).png of $($a.UUID) missing"
+    if ($a.PropertyInspectorPath) { Check (Test-Path (Join-Path $PluginDir $a.PropertyInspectorPath)) "manifest: $($a.PropertyInspectorPath) of $($a.UUID) missing" }
+    foreach ($st in $a.States) { if ($st.Image) { Check (Test-Path (Join-Path $PluginDir "$($st.Image).png")) "manifest: state image $($st.Image) of $($a.UUID) missing" } }
+    if ($a.Encoder) {
+        Check (@($a.Controllers) -contains 'Encoder') "manifest: $($a.UUID) has an Encoder section but no Encoder controller"
+        $lp = Join-Path $PluginDir $a.Encoder.layout
+        Check (Test-Path $lp) "manifest: layout $($a.Encoder.layout) of $($a.UUID) missing"
+        if (Test-Path $lp) {
+            $lay = Get-Content $lp -Raw | ConvertFrom-Json
+            Check (-not [string]::IsNullOrEmpty($lay.id)) 'layout: no id'
+            $lk = @($lay.items | ForEach-Object { $_.key })
+            Check ($lk.Count -ge 1 -and (@($lk | Select-Object -Unique)).Count -eq $lk.Count) 'layout: item keys missing or not unique'
+            foreach ($it in $lay.items) {
+                Check (@('text', 'pixmap', 'bar', 'gbar') -contains $it.type) "layout: item $($it.key) has type '$($it.type)'"
+                $rc = @($it.rect); Check ($rc.Count -eq 4 -and $rc[0] -ge 0 -and $rc[1] -ge 0 -and ($rc[0] + $rc[2]) -le 200 -and ($rc[1] + $rc[3]) -le 100) "layout: item $($it.key) is not inside the 200x100 strip segment"
+            }
+            # items of the same zOrder must not overlap
+            for ($x = 0; $x -lt @($lay.items).Count; $x++) { for ($y = $x + 1; $y -lt @($lay.items).Count; $y++) {
+                $p = $lay.items[$x]; $q = $lay.items[$y]
+                if ([int]$p.zOrder -eq [int]$q.zOrder) {
+                    $ov = ($p.rect[0] -lt ($q.rect[0] + $q.rect[2])) -and ($q.rect[0] -lt ($p.rect[0] + $p.rect[2])) -and ($p.rect[1] -lt ($q.rect[1] + $q.rect[3])) -and ($q.rect[1] -lt ($p.rect[1] + $p.rect[3]))
+                    Check (-not $ov) "layout: items $($p.key) and $($q.key) overlap"
+                }
+            } }
+            foreach ($need in 'name', 'value', 'hint') { Check ($lk -contains $need) "layout: item '$need' (set by the plugin) is missing" }
+        }
+    }
+}
 
 $files = @()
 $files += Get-ChildItem (Join-Path $PluginDir 'Profiles') -Filter *.streamDeckProfile -File | ForEach-Object { @{ path = $_.FullName; bridge = $true; v3 = $true } }
@@ -61,7 +95,26 @@ foreach ($f in $files) {
             $j = $pm | ConvertFrom-Json
             $kp = @($j.Controllers | Where-Object { $_.Type -eq 'Keypad' })
             Check ($kp.Count -eq 1) "${label}: $pd has $($kp.Count) Keypad controllers"
-            if ($kp.Count -ne 1 -or $null -eq $kp[0].Actions) { continue }
+            # dials: the plugin profiles of the Stream Deck + / + XL / Studio carry one "ChasePlane dial" per dial on every page, all others none
+            $enc = @($j.Controllers | Where-Object { $_.Type -eq 'Encoder' })
+            Check ($enc.Count -eq $(if ($DialCount.ContainsKey($model)) { 1 } else { 0 })) "${label}: $pd has $($enc.Count) Encoder controllers"
+            $isPage = ($kp.Count -eq 1 -and $null -ne $kp[0].Actions)
+            if ($enc.Count -eq 1 -and $null -ne $enc[0].Actions) {
+                $dials = @($enc[0].Actions.PSObject.Properties)
+                if ($isPage -and $f.bridge) {
+                    Check ($dials.Count -eq $DialCount[$model]) "${label}: $pd has $($dials.Count) dial actions, the model has $($DialCount[$model]) dials"
+                    foreach ($dp in $dials) {
+                        $xy = $dp.Name.Split(','); $da = $dp.Value
+                        Check ([int]$xy[0] -lt $DialCount[$model] -and [int]$xy[1] -eq 0) "${label}: dial $($dp.Name) is not at <n>,0"
+                        Check ($da.UUID -eq "$pluginId.dial") "${label}: dial $($dp.Name) is not a ChasePlane dial ($($da.UUID))"
+                        Check ($da.Plugin.UUID -eq $pluginId) "${label}: dial $($dp.Name) has no plugin entry"
+                        foreach ($fld in 'right', 'left', 'push') { Check ($knownIds -contains [string]$da.Settings.$fld) "${label}: dial $($dp.Name) $fld command '$($da.Settings.$fld)' is not a known command" }
+                        Check (@('short', 'medium', 'long') -contains [string]$da.Settings.pulse) "${label}: dial $($dp.Name) pulse '$($da.Settings.pulse)'"
+                        Check (-not [string]::IsNullOrWhiteSpace([string]$da.Settings.name)) "${label}: dial $($dp.Name) has no name"
+                    }
+                } else { Check ($dials.Count -eq 0) "${label}: $pd has $($dials.Count) dial actions where none belong (hotkeys-only or default page)" }
+            }
+            if (-not $isPage) { continue }
             $slots = @{}
             foreach ($p in $kp[0].Actions.PSObject.Properties) {
                 $xy = $p.Name.Split(','); $c = [int]$xy[0]; $r = [int]$xy[1]

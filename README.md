@@ -5,6 +5,7 @@ A free, unofficial Stream Deck plugin with a ready-made profile for **every Stre
 - Cockpit / External / World camera keys, **the views of your loaded aircraft on the keys (live names, the active view lights up)**, cinematic, flashlight, nearest tower / runway / parking / spotting, drone, flyby, traffic.
 - Fly cam, look, roll, zoom, peek, night vision, binoculars, depth of field, exposure, head tracking.
 - Pages (tabs) instead of one crowded screen. Small decks (Mini, Neo, +) get a "next page" key.
+- **Dials** on the Stream Deck +, + XL and Studio: zoom, look left / right, look up / down, next / previous view, roll and night vision, with what you just did shown on the touch strip.
 
 
 ## Download
@@ -48,6 +49,23 @@ The *Hotkeys-only* profiles are different: their keys send fixed shortcuts (the 
 
 In the Stream Deck app, open the action list, find **ChasePlane** and drag **ChasePlane command** onto any key (also in your own profiles). Under the key you choose the command from a list of everything ChasePlane can do. The list comes from ChasePlane itself while it runs (otherwise you get the built-in list) and shows the shortcut you have set for each command. Pick *Hold* (the shortcut stays pressed while you hold the key: move, look, boost) or *Tap* (a quick press), and optionally show the command's name on the key. The key then presses your own shortcut; a command without a shortcut flashes and the settings say so.
 
+## The dials (Stream Deck +, + XL, Studio)
+
+The ChasePlane profiles of these decks come with the dials already set, on every page:
+
+| Dial | Turn right / left | Push |
+|---|---|---|
+| ZOOM | zoom in / out | reset zoom |
+| LOOK | look right / left | reset horizon |
+| LOOK UP/DOWN | look up / down | reset horizon |
+| VIEW | next / previous view | inside / outside |
+| ROLL (+ XL) | roll right / left | reset horizon |
+| NIGHT VISION (+ XL) | more / less intensity | night vision on / off |
+
+The Stream Deck + has the first four, the + XL all six, and the Studio ZOOM and VIEW. Turning a dial presses the shortcut you have set in ChasePlane for that command (the same shortcuts as the keys, and only while the flight simulator window is in front); the touch strip shows the dial's name and, for a moment, what it just did. Tapping the touch strip does the same as pushing the dial.
+
+To change a dial, or to put one on a dial of your own profile: drag **ChasePlane dial** (group ChasePlane) onto a dial in the Stream Deck app and choose the command for *turn right*, *turn left*, *push* and *tap the touch strip* (optionally another command for turning while pushed in), plus a name for the touch strip. *How long the shortcut stays down per turn* sets the feel: *Short* is one quick press per click (steps, views), *Medium* and *Long* keep the shortcut down while you keep turning, so the camera moves smoothly. The *Hotkeys-only* profiles do not use the dials.
+
 ## Which profile do I get
 
 | Deck | Keys | Pages |
@@ -59,7 +77,7 @@ In the Stream Deck app, open the action list, find **ChasePlane** and drag **Cha
 | Stream Deck + XL | 36 | like XL plus one extra column |
 | Stream Deck Studio | 32 | like XL on two long rows |
 
-Dials and touch strips are not used. The *Hotkeys-only profile...* button in Setup imports the same profile without the plugin (every key sends a keyboard shortcut; no live view names). Those profiles are inside the exe; no loose files are needed.
+The *Hotkeys-only profile...* button in Setup imports the same profile without the plugin (every key sends a keyboard shortcut; no live view names). Those profiles are inside the exe; no loose files are needed.
 
 ## Problems
 
@@ -72,7 +90,7 @@ Dials and touch strips are not used. The *Hotkeys-only profile...* button in Set
 
 ## Please note
 
-- The plugin was tested against a simulated ChasePlane Bridge and a simulated Stream Deck, and the profile files were checked structurally. Reading the key list, the speed keys and pressing a key (the in/out camera switch, with the user's own shortcut) were also checked against a running ChasePlane. Reports from real decks (especially Mini, Neo, +, + XL and Studio) are very welcome.
+- The plugin was tested against a simulated ChasePlane Bridge and a simulated Stream Deck, and the profile files were checked structurally. Reading the key list, the speed keys and pressing a key (the in/out camera switch, with the user's own shortcut) were also checked against a running ChasePlane. Reports from real decks (especially Mini, Neo, +, + XL and Studio) are very welcome. The dials were built from Elgato's documentation and checked with a simulated Stream Deck; they have not been tried on a real Stream Deck + yet, so please tell me how they feel (and whether the touch strip text looks right).
 - The plugin uses ChasePlane's local Bridge (`ws://127.0.0.1:8652`). That interface is not officially documented, so a ChasePlane update can change it. The `hotkeys-only` profiles are the fallback.
 - Independent project. Not affiliated with, endorsed by or supported by Parallel 42, Elgato or Microsoft. ChasePlane, Stream Deck and Microsoft Flight Simulator are trademarks of their owners.
 - Setup does not install anything outside the Stream Deck plugin folder (via the Stream Deck app; that folder includes the small key helper `keysend.exe`), a temporary file in `%TEMP%\ChasePlaneDeckSetup`, copies of ChasePlane's `user_settings.json` in `%APPDATA%\ChasePlane Deck\Backups`, and the backup/edit of ChasePlane's `user_settings.json` that you approve by clicking Install. Without a built-in update address it does not use the network at all; with one, it only requests that one small file when it starts.

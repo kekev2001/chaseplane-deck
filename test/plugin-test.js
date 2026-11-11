@@ -226,6 +226,65 @@ const count = (ctx, ev) => sdMsgs.filter((m) => m.context === ctx && m.event ===
   check('list: the speed command is marked as a Bridge command (no key needed)', (byId('CAM_CONTROL_PROFILE_FAST') || {}).bridge === true, byId('CAM_CONTROL_PROFILE_FAST'));
   check('list: titles, categories and descriptions come from ChasePlane', (byId('CAM_MOVE_L') || {}).title === 'Move Left' && (byId('CAM_MOVE_L') || {}).category === 'Camera Movements' && /left/i.test((byId('CAM_MOVE_L') || {}).description), byId('CAM_MOVE_L'));
 
+  // ---- dials of the Stream Deck + / + XL / Studio: turn = left / right command, push, touch (events as the Stream Deck SDK sends them)
+  const D = 'ctx-dial';
+  let DIAL = { name: 'ZOOM', right: 'CAM_ZOOM_IN', left: 'CAM_ROLL_L', push: 'CAM_BOOST_SET', pulse: 'short', pushMode: 'tap' };
+  const dEv = (event, extra) => sdSend({ event, action: P + 'dial', context: D, device: 'DEV', payload: Object.assign({ controller: 'Encoder', coordinates: { column: 0, row: 0 }, settings: DIAL }, extra || {}) });
+  const dSet = (patch) => { DIAL = Object.assign({}, DIAL, patch); sdSend({ event: 'didReceiveSettings', action: P + 'dial', context: D, payload: { settings: DIAL } }); };
+  const fb = () => (last(D, 'setFeedback') || { payload: {} }).payload;
+  const fbValue = () => (fb().value && fb().value.value) || '';
+  const nks = (l) => ksLines().filter((x) => x === l).length;
+  dEv('willAppear', { state: 0 });
+  check('dial: the touch strip shows the name, both commands and the push action', await until(() => fb().name === 'ZOOM' && /Zoom In/.test(fbValue()) && fb().hint === 'Push: Boost'), fb());
+  let n = nks('tap 160 79'); dEv('dialRotate', { ticks: 1, pressed: false });
+  check('dial: turning right taps the shortcut of the right command (Shift+O)', await until(() => nks('tap 160 79') === n + 1), ksLines());
+  check('dial: the touch strip shows what was done', await until(() => fbValue() === 'Zoom In'), fb());
+  n = nks('tap 160 75'); dEv('dialRotate', { ticks: -1, pressed: false });
+  check('dial: turning left taps the shortcut of the left command (Shift+K, the user\'s own key)', await until(() => nks('tap 160 75') === n + 1), ksLines());
+  n = nks('tap 160 79'); dEv('dialRotate', { ticks: 3, pressed: false });
+  check('dial: three clicks in one event = three taps', await until(() => nks('tap 160 79') === n + 3), ksLines());
+  n = nks('tap 160 79'); dEv('dialRotate', { ticks: 40, pressed: false }); await until(() => nks('tap 160 79') === n + 6); await sleep(200);
+  check('dial: a very fast turn is capped at 6 taps', nks('tap 160 79') === n + 6, nks('tap 160 79') - n);
+  n = nks('tap 33'); const dn33 = nks('down 33'); dEv('dialDown'); dEv('dialUp');
+  check('dial: pushing it presses the push command once (PageUp), as a tap and not held', await until(() => nks('tap 33') === n + 1) && nks('down 33') === dn33, ksLines());
+  dSet({ pushMode: 'hold' }); n = nks('down 33'); let u = nks('up 33'); dEv('dialDown');
+  check('dial: push mode "hold" keeps the keys down while the dial is held in', await until(() => nks('down 33') === n + 1), ksLines()); await sleep(150);
+  check('... still down', nks('up 33') === u); dEv('dialUp');
+  check('... and released with the dial', await until(() => nks('up 33') === u + 1), ksLines());
+  dSet({ pushMode: 'tap' }); n = nks('tap 33'); dEv('touchTap', { hold: false, tapPos: [100, 50] });
+  check('dial: tapping the touch strip does the push command when no touch command is set', await until(() => nks('tap 33') === n + 1), ksLines());
+  dSet({ touch: 'CAM_QUICK_VIEW_UP' }); n = nks('tap 162 164 118'); dEv('touchTap', { hold: false, tapPos: [10, 10] });
+  check('dial: ... or its own touch command (Peek Up)', await until(() => nks('tap 162 164 118') === n + 1), ksLines()); dSet({ touch: '' });
+  dSet({ rightPressed: 'CAM_BOOST_SET' }); n = nks('tap 33'); dEv('dialRotate', { ticks: 1, pressed: true });
+  check('dial: turning while pushed in can run another command', await until(() => nks('tap 33') === n + 1), ksLines()); dSet({ rightPressed: '' });
+  // pulse > 0: the shortcut stays down while the dial keeps turning, then is let go
+  dSet({ pulse: 'medium' }); n = nks('down 160 79'); u = nks('up 160 79');
+  for (let i = 0; i < 4; i++) { dEv('dialRotate', { ticks: 1, pressed: false }); await sleep(60); }
+  check('dial: pulse "medium": one continuous press while turning', await until(() => nks('down 160 79') === n + 1), ksLines()); await sleep(60);
+  check('... let go shortly after the last click (and only once)', await until(() => nks('up 160 79') === u + 1, 1500) && nks('down 160 79') === n + 1, ksLines());
+  await sleep(300); check('... nothing further is sent', nks('up 160 79') === u + 1 && nks('down 160 79') === n + 1, ksLines());
+  n = nks('down 160 79'); u = nks('up 160 79'); dEv('dialRotate', { ticks: 1 }); dEv('dialRotate', { ticks: -1 });
+  check('dial: reversing the turn lets go of the old key before pressing the new one', await until(() => nks('up 160 75') >= 1 && nks('down 160 75') >= 1 && nks('up 160 79') === u + 1) && ksLines().lastIndexOf('up 160 79') < ksLines().lastIndexOf('down 160 75'), ksLines());
+  await until(() => nks('up 160 75') >= 2, 1500);
+  n = nks('down 160 79'); u = nks('up 160 79'); dEv('dialRotate', { ticks: 1 }); await until(() => nks('down 160 79') === n + 1);
+  sdSend({ event: 'willDisappear', action: P + 'dial', context: D, device: 'DEV', payload: { controller: 'Encoder', settings: DIAL } });
+  check('dial: page change while a shortcut is held -> let go (no stuck key)', await until(() => nks('up 160 79') === u + 1, 1500), ksLines());
+  dEv('willAppear', { state: 0 }); dSet({ pulse: 'short' });
+  // problems: flash the touch strip and the key alert, never type anywhere else
+  fs.writeFileSync(path.join(tmp, 'refuse'), '1'); let aD = count(D, 'showAlert'); dEv('dialRotate', { ticks: 1 });
+  check('dial: flight simulator not in front -> NOT IN SIM on the strip + alert', await until(() => count(D, 'showAlert') === aD + 1 && fbValue() === 'NOT IN SIM'), [fb(), count(D, 'showAlert')]);
+  fs.unlinkSync(path.join(tmp, 'refuse'));
+  dSet({ left: 'CAM_NOT_A_REAL_COMMAND' }); aD = count(D, 'showAlert'); n = ksLines().length; dEv('dialRotate', { ticks: -1 });
+  check('dial: a command without a shortcut -> NO SHORTCUT, nothing sent', await until(() => count(D, 'showAlert') === aD + 1 && fbValue() === 'NO SHORTCUT') && ksLines().length === n, [fb(), ksLines().length - n]);
+  dSet({ left: '' }); aD = count(D, 'showAlert'); dEv('dialRotate', { ticks: -1 });
+  check('dial: a direction without a command -> NOT SET', await until(() => count(D, 'showAlert') === aD + 1 && fbValue() === 'NOT SET'), fb());
+  dSet({ right: 'CAM_CONTROL_PROFILE_FAST' }); n = ksLines().length; const sp = reqs('set_control_profile').filter((e) => e.payload.mode === 2).length; dEv('dialRotate', { ticks: 1 });
+  check('dial: a speed command goes through the Bridge, no key', await until(() => reqs('set_control_profile').filter((e) => e.payload.mode === 2).length === sp + 1) && ksLines().length === n, reqs('set_control_profile'));
+  dSet({ right: 'CAM_ZOOM_IN', left: 'CAM_ROLL_L' });
+  sdSend({ event: 'sendToPlugin', action: P + 'dial', context: 'pi-dial', payload: { request: 'commands' } });
+  check('dial settings page gets the command list too (answered to the dial action)', await until(() => sdMsgs.some((m) => m.event === 'sendToPropertyInspector' && m.context === 'pi-dial' && m.action === P + 'dial' && m.payload.commands.length > 3)), sdMsgs.filter((m) => m.context === 'pi-dial'));
+  check('dial: no error in the plugin log so far', !/dial action failed/.test(fs.existsSync(path.join(tmp, 'plugin.log')) ? fs.readFileSync(path.join(tmp, 'plugin.log'), 'utf8') : ''));
+
   // events from the bridge
   bridgeClients[0].send(JSON.stringify({ message: 'cam_mode_set', payload: { mode: 1, preset_guid: 'e2', views_loaded: true } }));
   check('mode change to External: slot 1 now "Chase", slot 2 lit "Wing Left"', await until(() => (last(CTX.v1, 'setTitle') || {}).payload.title === 'Chase' && (last(CTX.v2, 'setTitle') || {}).payload.title === 'Wing Left' && last(CTX.v2, 'setImage').payload.image === b64('view_m1_lit')), [last(CTX.v1, 'setTitle'), last(CTX.v2, 'setImage')]);

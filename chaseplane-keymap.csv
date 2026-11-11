@@ -18,7 +18,7 @@ CAM_QUICK_VIEW_BEHIND,Ctrl+Alt+F16,new,1,"PEEK BACK",yes,2
 CAM_NEXT_VIEW,Shift+T,existing,1,"NEXT VIEW",yes,1
 CAM_SET_FLYBY,Ctrl+Alt+F20,new,1,"FLYBY",no,
 CAM_BINOCULARS,Ctrl+Alt+F24,new,1,"BINOCULARS",yes,4
-CAM_TOGGLE_IN_OUT,End,existing,1,"IN / OUT",no,
+CAM_TOGGLE_IN_OUT,End,existing,1,"IN / OUT",yes,
 CAM_SET_OVERVIEW,Ctrl+Alt+F23,new,1,"OVERVIEW",no,
 CAM_RESET,Shift+Space,existing,1,"RESET CAMERA",yes,1
 CAM_SMART_VIEW,Ctrl+Alt+F14,new,1,"SMART VIEW",no,

@@ -2,11 +2,11 @@
   "SDKVersion": 2,
   "Name": "ChasePlane Deck",
   "Author": "Independent",
-  "Description": "Control ChasePlane (Parallel 42) from a Stream Deck (Mini, 15-key, Neo, +, XL, + XL, Studio; a ready-made profile for each) through ChasePlane's local Bridge: cockpit, external and world cameras, the views of the loaded aircraft with live highlighting, cinematic, flashlight and speed. The other keys press the keyboard shortcuts you have set in ChasePlane. Not affiliated with Parallel 42, Elgato or Microsoft.",
+  "Description": "Control ChasePlane (Parallel 42) from a Stream Deck (Mini, 15-key, Neo, +, XL, + XL, Studio; a ready-made profile for each) through ChasePlane's local Bridge: cockpit, external and world cameras, the views of the loaded aircraft with live highlighting, cinematic, flashlight and speed. The dials of the Stream Deck +, + XL and Studio zoom, look around and step through the views. The other keys press the keyboard shortcuts you have set in ChasePlane. Not affiliated with Parallel 42, Elgato or Microsoft.",
   "Category": "ChasePlane",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/icon",
-  "Version": "1.2.0.0",
+  "Version": "1.3.0.0",
   "CodePath": "bin/plugin.js",
   "Nodejs": {
     "Version": "20"
@@ -434,6 +434,30 @@
           "TitleAlignment": "bottom",
           "FontSize": "11",
           "TitleColor": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "UUID": "com.chaseplanexl.deck.dial",
+      "Name": "ChasePlane dial",
+      "Icon": "imgs/actions/dial",
+      "Tooltip": "For the dials of the Stream Deck +, + XL and Studio. Turning the dial left or right runs a ChasePlane command (zoom, look around, next view ...), pushing the dial and tapping the touch strip run others. Choose the commands in the settings below.",
+      "PropertyInspectorPath": "ui/dial.html",
+      "Controllers": [
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "layouts/dial.json",
+        "TriggerDescription": {
+          "Rotate": "Run the left / right command",
+          "Push": "Run the push command",
+          "Touch": "Run the touch command"
+        }
+      },
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/actions/dial"
         }
       ]
     }

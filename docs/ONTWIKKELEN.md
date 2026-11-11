@@ -21,7 +21,7 @@ De bestandsnaam van het pakket zegt nog "XL" omdat het zo begon; het bevat alle 
 | Stream Deck + XL | 9×4 (36) | zoals XL, plus een extra kolom met cockpit/external/world/cinematic | 4 |
 | Stream Deck Studio | 16×2 (32) | zoals XL, op twee lange rijen | 4 |
 
-De draaiknoppen en het touch-scherm van de +, + XL, Studio en Neo gebruik ik niet. Stream Deck Mobile en Pedal zijn niet gedaan (Mobile heeft een eigen, instelbaar aantal toetsen; de Pedal heeft maar 3 pedalen).
+De draaiknoppen van de +, + XL en Studio zijn vanaf 1.3.0 in de plugin-profielen ingesteld (actie `com.chaseplanexl.deck.dial`, instellingenpagina `ui/dial.html`, touch-scherm `layouts/dial.json` met de tekstitems `name`, `value` en `hint`; de instellingen per knop staan in `$DialAll` en `dials` per model in `build/Build-ChasePlaneXL.ps1`). Het formaat komt uit Elgato's eigen Plus/Plus XL-profielen (Encoder-controller, acties op `<n>,0`) en de SDK-documentatie. Het is alleen getest met een nagemaakte Stream Deck (`test/plugin-test.js`, `test/Validate-Profiles.ps1`), niet op echte hardware. De hotkeys-only profielen laten de draaiknoppen leeg (de volgorde van de vier hotkey-vakjes van een draaiknop is niet bevestigd). Het touch-scherm van de Neo gebruik ik niet. Stream Deck Mobile en Pedal zijn niet gedaan (Mobile heeft een eigen, instelbaar aantal toetsen; de Pedal heeft maar 3 pedalen).
 
 **Previews:** in de map `preview\` staat per model een plaatje met alle pagina's onder elkaar (`xl.png`, `neo.png`, `mini.png`, `std.png`, `plus.png`, `plusxl.png`, `studio.png`; met `_hotkeys` erachter voor variant B). De 16 view-toetsen tonen daar voorbeeldnamen; in het echt staan hier de namen van de views van je vliegtuig.
 

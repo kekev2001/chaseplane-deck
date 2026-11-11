@@ -493,15 +493,22 @@ function releaseHeld(ctx) {
 function releaseAll() { for (const ctx of Array.from(ks.held.keys())) releaseHeld(ctx); }
 process.on('exit', () => { try { if (ks.proc) ks.proc.kill(); } catch (e) { /* ignore */ } });
 
-// a "command" key: the Bridge for the speed profile, otherwise the key the user has bound to the ChasePlane command
-async function commandDown(ctx, k) {
+async function comboFor(cmd) {
+  let combo = bindingFor(cmd);
+  if (!combo) { await refreshBindings(true); combo = bindingFor(cmd); }      // maybe the user has just assigned it
+  return combo;
+}
+
+// a "command" key: the Bridge for the speed profile, otherwise the key the user has bound to the ChasePlane command.
+// slot = the name under which a held key is remembered (the Stream Deck context; a dial has one slot per kind of press)
+async function commandDown(ctx, k, slot) {
+  slot = slot || ctx;
   const cmd = String((k.settings || {}).command || '');
   if (!cmd) { log('command key without a command', k.settings); alertKey(ctx); return; }
   if (Object.prototype.hasOwnProperty.call(SPEED, cmd)) { await req('set_control_profile', { mode: SPEED[cmd] }); return; }
-  let combo = bindingFor(cmd);
-  if (!combo) { await refreshBindings(true); combo = bindingFor(cmd); }      // maybe the user has just assigned it
+  const combo = await comboFor(cmd);
   if (!combo) { log('no key assigned in ChasePlane for', cmd, '(run ChasePlane Deck Setup to add it, or assign it in ChasePlane)'); alertKey(ctx); return; }
-  releaseHeld(ctx);
+  releaseHeld(slot);
   // "hold": the keys stay down while the Stream Deck key is held (move, look, boost ...); "tap": a quick press. Also a quick press when the
   // Stream Deck key was let go while we looked the key up (no stuck key)
   const verb = (k.isDown && (k.settings || {}).mode !== 'tap') ? 'down' : 'tap';
@@ -513,10 +520,113 @@ async function commandDown(ctx, k) {
     return;
   }
   if (verb === 'down') {
-    if (k.isDown) ks.held.set(ctx, combo);
+    if (k.isDown) ks.held.set(slot, combo);
     else sendKeys('up', combo);                                   // released while the helper was answering
   }
 }
+
+// ------------------------------------------------------------------ dials (Stream Deck +, + XL and Studio): turn, push and touch run ChasePlane commands
+// A dial turn presses the shortcut of the "left" or "right" command. pulse = how long the shortcut stays down per turn (0 = a quick tap per
+// tick); turning on keeps the shortcut down, so the camera moves smoothly. Push and touch run their own commands.
+const DIAL_PULSE_MS = { short: 0, medium: 150, long: 400 };
+const DIAL_MAX_TICKS = 6;                  // taps for one very fast turn
+function cmdTitle(id) {
+  if (!id) return '';
+  const i = commandInfo(id);
+  if (i && i.title) return String(i.title);
+  return String(id).replace(/^CAM_/, '').toLowerCase().replace(/_/g, ' ').replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+function releaseDial(ctx) {
+  const k = keys.get(ctx);
+  if (k) { clearTimeout(k.rotTimer); clearTimeout(k.flashTimer); k.rotCombo = null; if (k.push) k.push.isDown = false; }
+  releaseHeld(ctx + ':rot'); releaseHeld(ctx + ':push');
+}
+function dialFlash(ctx, text, bad) {
+  const k = keys.get(ctx);
+  if (!k) return;
+  k.flash = { text: String(text), bad: !!bad };
+  clearTimeout(k.flashTimer);
+  k.flashTimer = setTimeout(() => { k.flash = null; render(ctx); }, bad ? 2500 : 1200);
+  if (k.flashTimer.unref) k.flashTimer.unref();
+  render(ctx);
+}
+function dialProblem(ctx, k, what, cmd) {
+  const now = Date.now();
+  if (!k.lastProblem || now - k.lastProblem > 4000) { k.lastProblem = now; log('dial:', what, cmd || ''); }
+  dialFlash(ctx, what, true);
+  alertKey(ctx);
+}
+// the key presses of one dial are handled one after the other, in the order the Stream Deck sent them
+function dialQueue(ctx, fn) {
+  const k = keys.get(ctx);
+  if (!k) return Promise.resolve();
+  k.queue = (k.queue || Promise.resolve()).then(() => fn(k)).catch((e) => { log('dial action failed', String(e)); dialFlash(ctx, 'ERROR', true); });
+  return k.queue;
+}
+async function dialTurn(ctx, k, ticks, pressed) {
+  const s = k.settings || {};
+  const cmd = String((ticks > 0 ? (pressed && s.rightPressed) || s.right : (pressed && s.leftPressed) || s.left) || '');
+  if (!cmd) { dialProblem(ctx, k, 'NOT SET'); return; }
+  const n = Math.min(DIAL_MAX_TICKS, Math.abs(ticks));
+  const ms = DIAL_PULSE_MS[s.pulse] === undefined ? DIAL_PULSE_MS.medium : DIAL_PULSE_MS[s.pulse];
+  if (Object.prototype.hasOwnProperty.call(SPEED, cmd)) {         // a speed command goes through the Bridge, one step per turn
+    await req('set_control_profile', { mode: SPEED[cmd] });
+    dialFlash(ctx, cmdTitle(cmd)); return;
+  }
+  const combo = await comboFor(cmd);
+  if (!combo) { dialProblem(ctx, k, 'NO SHORTCUT', cmd); return; }
+  const slot = ctx + ':rot';
+  const sameKey = k.rotCombo && k.rotCombo.join() === combo.join();
+  if (ms > 0 && sameKey) {                                         // still turning the same way: keep the shortcut down a bit longer
+    clearTimeout(k.rotTimer);
+    k.rotTimer = setTimeout(() => { k.rotCombo = null; releaseHeld(slot); }, ms);
+    if (k.rotTimer.unref) k.rotTimer.unref();
+    dialFlash(ctx, cmdTitle(cmd)); return;
+  }
+  clearTimeout(k.rotTimer); k.rotCombo = null; releaseHeld(slot);
+  const reply = await sendKeys(ms > 0 ? 'down' : 'tap', combo);
+  if (!/^ok/.test(reply)) {
+    if (/not-foreground/.test(reply)) { dialProblem(ctx, k, 'NOT IN SIM', cmd); }
+    else dialProblem(ctx, k, 'NO KEY SENT', cmd + ' ' + reply);
+    return;
+  }
+  if (ms > 0) {
+    ks.held.set(slot, combo); k.rotCombo = combo;
+    k.rotTimer = setTimeout(() => { k.rotCombo = null; releaseHeld(slot); }, ms);
+    if (k.rotTimer.unref) k.rotTimer.unref();
+  } else {
+    for (let i = 1; i < n; i++) { const r = await sendKeys('tap', combo); if (!/^ok/.test(r)) break; }
+  }
+  dialFlash(ctx, cmdTitle(cmd));
+}
+function onDialRotate(ctx, payload) {
+  const ticks = Number(payload && payload.ticks) || 0;
+  if (!ticks) return;
+  dialQueue(ctx, (k) => dialTurn(ctx, k, ticks, !!(payload && payload.pressed)));
+}
+function onDialDown(ctx) {
+  dialQueue(ctx, async (k) => {
+    const s = k.settings || {};
+    if (!s.push) { if (!s.touch) dialFlash(ctx, 'NO PUSH ACTION', true); else await dialTouch(ctx, k); return; }
+    k.push = { isDown: true, settings: { command: s.push, mode: s.pushMode === 'hold' ? 'hold' : 'tap' } };
+    await commandDown(ctx, k.push, ctx + ':push');
+    dialFlash(ctx, cmdTitle(s.push));
+  });
+}
+function onDialUp(ctx) {
+  const k = keys.get(ctx);
+  if (!k) return;
+  if (k.push) k.push.isDown = false;
+  releaseHeld(ctx + ':push');
+}
+async function dialTouch(ctx, k) {
+  const s = k.settings || {};
+  const cmd = s.touch || s.push;
+  if (!cmd) { dialFlash(ctx, 'NO TOUCH ACTION', true); return; }
+  await commandDown(ctx, { isDown: false, settings: { command: cmd, mode: 'tap' } }, ctx + ':touch');
+  dialFlash(ctx, cmdTitle(cmd));
+}
+function onTouchTap(ctx) { dialQueue(ctx, (k) => dialTouch(ctx, k)); }
 
 // ------------------------------------------------------------------ Stream Deck connection
 const keys = new Map();            // context -> { id, settings, sent }
@@ -576,6 +686,8 @@ function render(ctx) {
     let lit = false;
     try { lit = bridge.ready && STATIC[k.id].lit(); } catch (e) { lit = false; }
     once(k, 'state', lit ? 1 : 0, (s) => setState(ctx, s));
+  } else if (k.id === 'dial') {
+    renderDial(ctx, k);
   } else if (k.id === 'cmd') {
     const s = k.settings || {};
     if (CMD_LIT[s.command]) {
@@ -587,6 +699,19 @@ function render(ctx) {
     if (s.autoTitle && s.command) { const info = commandInfo(s.command); k.titled = true; once(k, 'title', wrapTitle(info ? info.title : s.command, 10, 3), (t) => setTitle(ctx, t)); }
     else if (k.titled) { k.titled = false; k.sent.title = ''; setTitle(ctx, ''); }        // the option was switched off: take our title away again
   }
+}
+// the touch strip of a dial: layouts/dial.json has the text items name, value and hint
+function renderDial(ctx, k) {
+  const s = k.settings || {};
+  const name = String(s.name || '').trim() || (s.right ? cmdTitle(s.right) : 'ChasePlane');
+  let value, color = '#ffffff', size = 24;
+  if (k.flash) { value = k.flash.text; if (k.flash.bad) color = '#f0b45a'; }
+  else if (s.left || s.right) { value = cmdTitle(s.left) + ' / ' + cmdTitle(s.right); color = '#9fb4d0'; size = 14; }      // 14 px: "Look Left / Look Right" fits the 200 px of one dial
+  else { value = 'Choose a command'; color = '#9fb4d0'; size = 14; }
+  const hint = s.push ? 'Push: ' + cmdTitle(s.push) : '';
+  const fb = { name: name, value: { value: value, color: color, font: { size: size, weight: 700 } }, hint: hint };
+  const sig = JSON.stringify(fb);
+  if (k.sent.feedback !== sig) { k.sent.feedback = sig; sdSend({ event: 'setFeedback', context: ctx, payload: fb }); }
 }
 function renderAll() { for (const ctx of keys.keys()) render(ctx); }
 
@@ -622,8 +747,12 @@ function onSD(text) {
       keys.set(m.context, { id: String(m.action || '').slice(PREFIX.length), settings: (m.payload && m.payload.settings) || {}, sent: {} });
       render(m.context);
       break;
-    case 'willDisappear': releaseHeld(m.context); keys.delete(m.context); break;
+    case 'willDisappear': releaseHeld(m.context); releaseDial(m.context); keys.delete(m.context); break;
     case 'keyUp': { const k = keys.get(m.context); if (k) k.isDown = false; releaseHeld(m.context); break; }
+    case 'dialRotate': onDialRotate(m.context, m.payload); break;
+    case 'dialDown': onDialDown(m.context); break;
+    case 'dialUp': onDialUp(m.context); break;
+    case 'touchTap': onTouchTap(m.context); break;
     case 'didReceiveSettings': {
       const k = keys.get(m.context);
       if (k) { k.settings = (m.payload && m.payload.settings) || {}; k.sent = {}; render(m.context); }

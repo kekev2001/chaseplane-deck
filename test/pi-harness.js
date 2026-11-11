@@ -1,6 +1,6 @@
 'use strict';
-// Serves the settings page of the "ChasePlane command" key (ui/cmd.html) the way the Stream Deck app would run it, with a fake Stream Deck app behind it,
-// so the page can be tried in any browser:   node test\pi-harness.js        then open  http://127.0.0.1:18700/pi.html   (?offline=1 = Bridge not running)
+// Serves the settings page of the "ChasePlane command" key (ui/cmd.html) or of the dial (ui/dial.html) the way the Stream Deck app would run it, with a fake Stream Deck app behind it,
+// so the page can be tried in any browser:   node test\pi-harness.js        then open  http://127.0.0.1:18700/pi.html   (?offline=1 = Bridge not running, ?page=dial = the dial's page)
 //   /log    shows what the page sent to the "plugin" (sendToPlugin requests and the settings it saved)
 // Needs the "ws" package (CP_TEST_WS or npm install ws), like plugin-test.js.
 const http = require('http');
@@ -11,7 +11,7 @@ function loadWs() {
   console.error('The "ws" package is needed: set CP_TEST_WS or run npm install ws'); process.exit(2);
 }
 const { Server: WSServer } = loadWs();
-const UI = path.join(__dirname, '..', 'plugin', 'com.chaseplanexl.deck.sdPlugin', 'ui', 'cmd.html');
+const UI_DIR = path.join(__dirname, '..', 'plugin', 'com.chaseplanexl.deck.sdPlugin', 'ui');
 const KNOWN = path.join(__dirname, '..', 'plugin', 'com.chaseplanexl.deck.sdPlugin', 'bin', 'known-commands.json');
 const HTTP_PORT = Number(process.env.PI_PORT || 18700);
 const log = [];
@@ -47,8 +47,9 @@ http.createServer((req, res) => {
   if (u.pathname === '/pi.html') {
     const offline = u.searchParams.get('offline') === '1';
     const settings = u.searchParams.get('settings') ? JSON.parse(u.searchParams.get('settings')) : {};
-    let html = fs.readFileSync(UI, 'utf8');
-    const boot = `<script>window.addEventListener('load', function () { connectElgatoStreamDeckSocket(${HTTP_PORT + 1}, 'PI-UUID', 'registerPropertyInspector', '{}', ${JSON.stringify(JSON.stringify({ action: 'com.chaseplanexl.deck.cmd', context: 'CTX', payload: { settings } }))}); });</script>`;
+    const which = u.searchParams.get('page') === 'dial' ? 'dial' : 'cmd';          // ?page=dial = the settings page of the dial action
+    let html = fs.readFileSync(path.join(UI_DIR, which + '.html'), 'utf8');
+    const boot = `<script>window.addEventListener('load', function () { connectElgatoStreamDeckSocket(${HTTP_PORT + 1}, 'PI-UUID', 'registerPropertyInspector', '{}', ${JSON.stringify(JSON.stringify({ action: 'com.chaseplanexl.deck.' + which, context: 'CTX', payload: { settings } }))}); });</script>`;
     html = html.replace('</body>', boot + '</body>');
     res.setHeader('content-type', 'text/html; charset=utf-8');
     nextOffline = offline;
