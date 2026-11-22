@@ -5,3 +5,4 @@ using System.Reflection;
 [assembly: AssemblyDescription("Installs the ChasePlane Deck Stream Deck plugin and profiles and adds the ChasePlane key shortcuts they need.")]
 [assembly: AssemblyCompany("Independent (not affiliated with Parallel 42, Elgato or Microsoft)")]
 [assembly: AssemblyProduct("ChasePlane Deck")]
+[assembly: AssemblyCopyright("MIT licence - https://github.com/kekev2001/chaseplane-deck")]

@@ -83,6 +83,7 @@ De knop *Hotkeys-only profiel...* in Setup importeert hetzelfde profiel zonder p
 - **Een toets knippert en doet niets:** het commando heeft geen sneltoets in ChasePlane (wijs er een toe in Control Assignments of laat Setup hem toevoegen), of het venster van de flight simulator staat niet vooraan.
 - **Toetsen doen niets:** gebruik *Check & herstel*. Draait MSFS/ChasePlane als administrator, start dan ook de Stream Deck-app als administrator.
 - **Pluginlogboek:** `%APPDATA%\Elgato\StreamDeck\Plugins\com.chaseplanexl.deck.sdPlugin\logs\plugin.log`
+- **Windows Defender of SmartScreen blokkeert de download:** de exe is niet digitaal ondertekend, dus een nieuwe versie kan ten onrechte worden gemeld (versie 1.3.0 kreeg de melding `Trojan:Win32/Yomal!rfn`; 1.3.1 vervangt dat bestand). Gebruik de nieuwste release, vergelijk de SHA-256 met [download/SHA256.txt](download/SHA256.txt) of de releasepagina, en meld een bestand dat opnieuw wordt gemeld bij Microsoft als ten onrechte gedetecteerd op https://www.microsoft.com/wdsi/filesubmission. De volledige broncode staat in deze repository; je kunt hem ook zelf bouwen.
 - **Een tab opent de verkeerde pagina:** meld het graag, met je deckmodel.
 
 ## Let op

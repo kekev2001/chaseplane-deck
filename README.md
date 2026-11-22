@@ -86,6 +86,7 @@ The *Hotkeys-only profile...* button in Setup imports the same profile without t
 - **Keys do nothing**: if MSFS/ChasePlane runs as administrator, run the Stream Deck app as administrator too.
 - **Plugin log**: `%APPDATA%\Elgato\StreamDeck\Plugins\com.chaseplanexl.deck.sdPlugin\logs\plugin.log`
 - **A tab opens the wrong page**: please report it with your deck model.
+- **Windows Defender or SmartScreen blocks the download**: the exe is not code-signed, so a new version can be flagged as a false positive (version 1.3.0 was reported as `Trojan:Win32/Yomal!rfn`; 1.3.1 replaces that file). Use the newest release, compare the SHA-256 with [download/SHA256.txt](download/SHA256.txt) or the release page, and if a file is flagged again report it to Microsoft as incorrectly detected at https://www.microsoft.com/wdsi/filesubmission. The complete source code is in this repository, so you can also build it yourself (see below).
 - **Remove**: delete the plugin in the Stream Deck app (More actions > Plugins) and use *Undo keys* in Setup.
 
 ## Please note

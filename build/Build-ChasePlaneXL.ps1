@@ -970,7 +970,9 @@ $iconPng = Get-KeyPng 'overview' '' 'mode' $false 60 40
 # keysend.exe: the helper that presses keys for the "command" keys (compiled with the csc.exe that ships with Windows)
 $Csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $KeySendExe = Join-Path $PluginDir 'bin\keysend.exe'
-& $Csc /nologo /target:exe /optimize+ /platform:anycpu "/out:$KeySendExe" (Join-Path $Root 'plugin\keysend\KeySend.cs')
+$KsVersion = Join-Path $env:TEMP 'chaseplane-keysend-version.cs'      # version resource of the helper: same number as the plugin
+[System.IO.File]::WriteAllText($KsVersion, "using System.Reflection;`r`n[assembly: AssemblyVersion(`"$PluginVersion`")]`r`n[assembly: AssemblyFileVersion(`"$PluginVersion`")]`r`n", (New-Object System.Text.UTF8Encoding $false))
+& $Csc /nologo /target:exe /optimize+ /platform:anycpu "/out:$KeySendExe" (Join-Path $Root 'plugin\keysend\KeySend.cs') (Join-Path $Root 'plugin\keysend\AssemblyInfo.cs') $KsVersion
 if ($LASTEXITCODE -ne 0) { throw "csc failed for keysend.exe ($LASTEXITCODE)" }
 
 # .streamDeckPlugin = zip of the .sdPlugin folder (without logs)
